@@ -1,30 +1,49 @@
-# Core dependencies
+# =============================================================================
+# VIGILANTE DIGITAL IA — Dependencias
+# =============================================================================
+
+# Core visión y IA
 opencv-python>=4.8.0
 numpy>=1.24.0
 mediapipe>=0.10.0
 
-# Network and notifications
-requests>=2.31.0
-twilio>=8.0.0
+# Motor de detección YOLOv8 (recomendado para demo con GPU)
+ultralytics>=8.0.0
 
-# Reportes y generación de documentos PDF
+# Red y notificaciones
+requests>=2.31.0
+
+# PDF y generación de reportes
 reportlab>=4.0.0
 pillow>=10.0.0
 
-# Firebase integration
+# Firebase / Firestore
 firebase-admin>=6.0.0
 google-cloud-firestore>=2.13.0
 
-# Dispositivos y sensores (opcional - instalar según necesidad)
-# paho-mqtt>=1.6.0        # Para MQTT (ESP32, IoT devices)
-# pyserial>=3.5            # Para USB Serial (Arduino, sensores)
+# Alertas de audio
+playsound>=1.3.0
+
+# =============================================================================
+# INSTALACIÓN CON GPU (PC Gamer / RTX)
+# =============================================================================
+# PyTorch con CUDA 12.1 — instalar SEPARADO antes de ultralytics:
+#
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+#
+# Verificar GPU:
+#   python -c "import torch; print('GPU:', torch.cuda.get_device_name(0))"
+# =============================================================================
+
+# Dispositivos IoT (opcional — instalar según necesidad)
+# paho-mqtt>=1.6.0        # MQTT (ESP32, IoT)
+# pyserial>=3.5            # USB Serial (Arduino, sensores)
+
+# SMS (opcional — implementar si se integra Twilio)
+# twilio>=8.0.0
 
 # Desarrollo y testing (opcional)
-# Descomenta si necesitas:
-# pytest>=7.0.0
+pytest>=7.0.0
 # pytest-cov>=4.0.0
 # black>=23.0.0
 # flake8>=6.0.0
-
-# Nota: smtplib y email son módulos built-in de Python
-# No es necesario instalarlos vía pip

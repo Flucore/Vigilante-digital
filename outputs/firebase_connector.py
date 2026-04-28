@@ -61,7 +61,7 @@ class FirebaseConnector:
         cfg_json_log = getattr(config, "JSON_LOG_PATH", None)
 
         self.credentials_path: Optional[Path] = Path(credentials_path) if credentials_path else (Path(cfg_cred) if cfg_cred else None)
-        self.project_id: Optional[str] = collection or cfg_proj
+        self.project_id: Optional[str] = cfg_proj
         self.collection: str = collection or cfg_collection or "events"
         self.json_log_path: Path = Path(json_log_path or cfg_json_log or "events_history.json")
         self.state_path: Path = Path(state_path or (self.json_log_path.parent / f".{self.json_log_path.name}.state"))
@@ -202,14 +202,19 @@ class FirebaseConnector:
 
             candidates: List[Tuple[datetime, Dict[str, Any]]] = []
             for ev in history:
-                ts = ev.get("timestamp")
+                # Normalizar: EventLogger emite start_time, JSONLogger emite timestamp
+                ts = ev.get("timestamp") or ev.get("start_time")
                 if not ts:
                     continue
                 ev_dt = self._parse_iso(ts)
                 if ev_dt is None:
                     continue
                 if last_dt is None or ev_dt > last_dt:
-                    candidates.append((ev_dt, ev))
+                    # Garantizar que el doc a subir tenga campo "timestamp"
+                    normalized = dict(ev)
+                    if "timestamp" not in normalized:
+                        normalized["timestamp"] = ts
+                    candidates.append((ev_dt, normalized))
 
             # Sort by timestamp ascending
             candidates.sort(key=lambda x: x[0])

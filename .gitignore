@@ -2,6 +2,17 @@
 *.json
 !requirements.txt
 !package.json
+!demo_config.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
+*service_account*.json
+*firebase-adminsdk*.json
 
 # Google Cloud
 GOOGLE_APPLICATION_CREDENTIALS
@@ -10,6 +21,28 @@ GOOGLE_APPLICATION_CREDENTIALS
 /secrets/
 /.secrets/
 /config/secrets/
+
+# Configuracion local y datos sensibles
+/datasets/
+/data/
+/captures/
+/snapshots/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.pdf
+
+# Modelos y pesos descargados
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
 
 # Cache de Python
 __pycache__/
@@ -42,6 +75,9 @@ env/
 # IDEs
 .vscode/
 .idea/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/*.mdc
 *.swp
 *.swo
 *~
@@ -51,8 +87,16 @@ env/
 *.log
 *.tmp
 *.temp
+*.state
 outputs/events_history.json
 outputs/.events_history.json.state
+outputs/events_log.json
+outputs/events_*.json
+outputs/*.json
+events_log.json
+events_history.json
+test_outputs/
+reports/
 .firebase_sync_state
 
 # Archivos de compilación MediaPipe / OpenCV

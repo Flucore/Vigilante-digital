@@ -196,9 +196,9 @@ git checkout main  # o git checkout master
 git push origin main
 
 # Si sale error "Permission denied":
-# Ir a GitHub Settings > Developer Settings > Personal Access Tokens
-# Crear token con scopes: repo, write:repo_hook
-# Luego usar: git push https://TU_TOKEN@github.com/TU_USUARIO/VigilanteDigital.git main
+# Autenticarse con GitHub CLI o Git Credential Manager.
+# No pegar tokens en la URL del remoto ni guardarlos en scripts.
+# Ejemplo: gh auth login
 
 # 6.3 Subir etiquetas (releases)
 git push origin v2.0.0
@@ -239,20 +239,18 @@ git push origin --tags
 
 ## 🔄 Paso 8: Automatizar con Deploy Script (Opcional)
 
-Para futuras actualizaciones, usa el script PowerShell:
+Para futuras actualizaciones, usa el script PowerShell que publica al repo Flucore
+sin depender del `origin` local:
 
 ```powershell
-# 8.1 Usar script deploy para próximas versiones
-.\scripts\deploy_to_github.ps1 `
+# 8.1 Simular auditoria, commit y push
+.\scripts\publish_flucore_repo.ps1 `
   -Message "Release v2.0.1: Fix EventLogger edge case" `
-  -Tag v2.0.1 `
-  -DryRun  # Primero en modo simulación
+  -DryRun
 
 # 8.2 Si DRY RUN se ve bien, ejecutar de verdad
-.\scripts\deploy_to_github.ps1 `
-  -Message "Release v2.0.1: Fix EventLogger edge case" `
-  -Tag v2.0.1
-  # (sin -DryRun)
+.\scripts\publish_flucore_repo.ps1 `
+  -Message "Release v2.0.1: Fix EventLogger edge case"
 
 # 8.3 Verificar en GitHub nuevamente
 ```
@@ -307,12 +305,9 @@ git status  # Ahora debería funcionar
 ### Error: "Permission denied (publickey)"
 
 ```powershell
-# Configurar GitHub con token en lugar de SSH
-git config --global user.email "tu_email@gmail.com"
-git config --global user.name "Tu Nombre"
-
-# Luego usar HTTPS con token:
-git remote set-url origin https://TU_TOKEN@github.com/TU_USUARIO/VigilanteDigital.git
+# Autenticarse con GitHub CLI o Git Credential Manager.
+# Evitar tokens en texto plano dentro de la URL del remoto.
+gh auth login
 git push
 ```
 

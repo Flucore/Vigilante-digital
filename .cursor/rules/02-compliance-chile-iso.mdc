@@ -1,0 +1,61 @@
+---
+description: Marco legal chileno e ISO aplicable al sistema de vigilancia Vigilante Digital IA
+alwaysApply: true
+---
+
+# Compliance — Marco Legal Chile + ISO
+
+## Leyes chilenas aplicables
+
+### Ley 19.628 / Ley 21.663 — Protección de Datos Personales
+- Las imágenes de personas son **datos personales biométricos** (categoría sensible)
+- Requiere **consentimiento informado** o base legal legítima (seguridad, contrato)
+- Obligación de informar al titular de los datos (cartelería visible)
+- Derecho de acceso, rectificación y eliminación
+- **Implementar**: retención máxima configurable en `demo_config.json` → `data_retention_days`
+
+### Ley 19.303 — Seguridad Privada
+- Sistemas de vigilancia en instalaciones privadas regulados por OS10 (Carabineros)
+- El operador del sistema debe ser empresa de seguridad autorizada o actuar bajo su supervisión
+- Los videos son medios de prueba legalmente admisibles si cumplen cadena de custodia
+
+### Ley 21.459 — Delitos Informáticos (2022)
+- Acceso no autorizado a sistemas de cómputo es delito
+- El sistema no debe transmitir imágenes a terceros sin autorización
+- Logs de acceso al sistema deben mantenerse (EventLogger cumple esto)
+
+### DFL N°1/2006 — Código del Trabajo
+- Vigilancia de trabajadores requiere comunicación previa al empleado
+- No se puede usar como único medio de evaluación de desempeño
+
+## Normas ISO aplicables
+
+### IEC 62676 — Sistemas de Videovigilancia para Seguridad
+- IEC 62676-1-1: Requisitos del sistema y rendimiento
+- IEC 62676-4: Aplicación de directrices de diseño
+- **Relevante**: calidad mínima de imagen para identificación facial, retención de grabaciones
+
+### ISO/IEC 27001:2022 — Gestión de Seguridad de la Información
+- Cifrado de datos en tránsito y reposo
+- Control de acceso basado en roles
+- Plan de respuesta a incidentes
+
+### ISO/IEC 27701:2019 — Gestión de Privacidad (extensión de 27001)
+- Mapeo de datos personales procesados
+- Evaluación de impacto en privacidad (PIA)
+
+### ISO 45001:2018 — Seguridad y Salud Ocupacional
+- Detección de caídas como medida de control de riesgo laboral
+- Requiere registro de incidentes (EventLogger + Firestore lo cubre)
+
+### ISO 31000:2018 — Gestión de Riesgos
+- Falsos positivos = riesgo operacional (alarmas innecesarias)
+- Falsos negativos = riesgo de seguridad (eventos no detectados)
+- La validación temporal (min_fall_frames) gestiona este balance
+
+## Reglas de código derivadas del compliance
+- **Todo evento debe tener timestamp ISO 8601 con zona horaria**
+- **No persistir imágenes de rostros sin consentimiento documentado**
+- **Logs de acceso al sistema** → usar `logging` con nivel WARNING+ en producción
+- **Retención configurable**: no guardar eventos/imágenes más allá del período legal
+- **Cartelería requerida** (fuera del código): zona vigilada por sistema de IA

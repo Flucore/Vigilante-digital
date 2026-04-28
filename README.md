@@ -27,8 +27,8 @@
 
 ### 1. Clonar Repositorio
 ```powershell
-git clone https://github.com/DamianVFP/Detector_Caidas.git
-cd Detector_Caidas
+git clone https://github.com/Flucore/Vigilante-digital.git
+cd Vigilante-digital
 ```
 
 ### 2. Crear Entorno Virtual
@@ -60,7 +60,7 @@ Ver [GMAIL_SETUP_GUIDE.md](GMAIL_SETUP_GUIDE.md) para instrucciones detalladas.
 
 ### 5. Ejecutar Prueba
 ```powershell
-python .\scripts\run_test.py --video .\tests\test_videos\fall_sample_01.mp4 --output .\test_outputs
+python .\scripts\run_test.py --video C:\ruta\segura\video_demo.mp4 --output .\test_outputs
 ```
 
 **Resultado esperado:**

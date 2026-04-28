@@ -1,0 +1,60 @@
+---
+description: Estándares para logging de eventos, Firebase y outputs en outputs/
+globs: outputs/*.py
+alwaysApply: false
+---
+
+# Outputs y Eventos — Estándares
+
+## Formato canónico de evento (todos los módulos)
+
+```python
+event = {
+    "event_type": "fall" | "perimeter_breach" | "thermal_alert" | "weapon_detected",
+    "timestamp": "2026-04-27T03:00:00+00:00",   # ISO 8601 con TZ — REQUERIDO
+    "start_time": "...",                          # si el evento tiene duración
+    "end_time": "...",
+    "duration_seconds": float,
+    "camera_id": "CAM_1",
+    "zone": "Bodega A",
+    "sector": "Norte",
+    "photo_path": "test_outputs/snapshots/evt_001.jpg" | None,
+    "metadata": { ... },                          # datos específicos del detector
+    "compliance": {
+        "retention_days": 30,                     # política de retención
+        "consent_basis": "legitimate_interest",   # base legal (Ley 21.663)
+    }
+}
+```
+
+## Reglas de persistencia
+- **Siempre incluir `timestamp`** en ISO 8601 con zona horaria
+- `EventLogger.log_event()` guarda localmente → luego `sync_new_events()` a Firebase
+- **Nunca llamar `connector.log_event()`** — ese método no existe en FirebaseConnector
+- Firebase es **opcional**: envolver siempre en try/except
+- `_write_history()` debe usar escritura atómica: `mkstemp` + `os.replace`
+
+## Retención y compliance (Ley 19.628 / IEC 62676)
+```python
+# Al crear evento, incluir política de retención
+event["compliance"] = {
+    "retention_days": config.DATA_RETENTION_DAYS,  # default 30
+    "consent_basis": "security_monitoring",
+}
+```
+
+## Snapshots de evidencia
+- Guardar JPG solo al confirmar evento (no por frame)
+- Path: `{snapshot_dir}/{cam_id}_{event_type}_{timestamp}.jpg`
+- Calidad JPEG: 85 (balance tamaño/calidad para evidencia)
+- Incluir `photo_path` en el dict del evento
+
+## Firebase — patrones seguros
+```python
+# ✅ Correcto: sync después de guardar localmente
+event_logger.log_event(event)
+threading.Thread(target=connector.sync_new_events, daemon=True).start()
+
+# ❌ Incorrecto: log_event no existe en FirebaseConnector
+connector.log_event(event)
+```

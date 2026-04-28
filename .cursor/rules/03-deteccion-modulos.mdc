@@ -1,0 +1,56 @@
+---
+description: Patrones y estándares para módulos de detección en core/
+globs: core/*.py
+alwaysApply: false
+---
+
+# Módulos de Detección — Estándares
+
+## Interfaz mínima requerida (todo detector)
+
+```python
+class MiDetector:
+    def find_pose(self, img: np.ndarray, draw: bool = True) -> Tuple[np.ndarray, Any]:
+        """Procesa frame. Retorna (frame_procesado, results)."""
+        ...
+
+    def find_position(self, img: np.ndarray, results: Any, draw: bool = True
+                      ) -> Tuple[List, Dict[str, Any]]:
+        """Retorna (lm_list, bbox). bbox debe incluir 'is_falling' si aplica."""
+        ...
+
+    def close(self) -> None: ...
+    def __enter__(self): return self
+    def __exit__(self, *_): self.close()
+```
+
+## Formato de bbox estándar
+```python
+bbox = {
+    "xmin": int, "ymin": int, "xmax": int, "ymax": int,
+    "width": int, "height": int,
+    "is_falling": bool,          # solo detectores de caída
+    "track_id": int,             # si hay tracking
+}
+```
+
+## Validación temporal (patrón obligatorio para reducir falsos +)
+```python
+from collections import deque
+window = deque(maxlen=self.min_fall_frames)
+window.append(is_falling_this_frame)
+confirmed = len(window) == self.min_fall_frames and all(window)
+```
+
+## Manejo de GPU
+```python
+# ✅ Siempre verificar disponibilidad, nunca asumir
+import torch
+device = "cuda" if (use_gpu and torch.cuda.is_available()) else "cpu"
+```
+
+## Nuevo módulo de detección → módulos planificados
+- `core/thermal_detector.py` — temperaturas anómalas con cámara FLIR
+- `core/weapon_detector.py`  — detección de armas (YOLOv8 custom dataset)
+- `core/intrusion_detector.py` — zona restringida (polígono + tracker)
+- `core/climbing_detector.py` — escalamiento de rejas (secuencia de poses)

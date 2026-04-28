@@ -1,0 +1,43 @@
+---
+description: Arquitectura y estándares de código del proyecto Vigilante Digital IA
+alwaysApply: true
+---
+
+# Vigilante Digital — Arquitectura Central
+
+## Filosofía
+Un **vigilante digital** analiza cada frame o grupo de frames, 24/7, de forma modular
+y extensible. Cada módulo de detección es intercambiable sin romper el sistema.
+
+## Estructura de capas (respetar siempre)
+```
+inputs/   → fuentes de video (cámaras IP, USB, archivos)
+core/     → lógica de detección (pose, YOLO, perímetro, temperatura)
+outputs/  → persistencia, alertas, PDF, Firebase
+scripts/  → orquestadores y demos (no lógica de negocio aquí)
+config.py → única fuente de verdad para parámetros
+```
+
+## Reglas inamovibles
+- **Sin credenciales en código**: usar variables de entorno o `config.py`
+- **Firebase es opcional**: todo flujo debe funcionar sin Firestore configurado
+- **Type hints** en toda función pública (`def fn(x: int) -> bool`)
+- **API compatible**: los detectores exponen `find_pose()` y `find_position()`
+- **Escritura atómica de JSON**: usar `tempfile.mkstemp` + `os.replace`
+- **Sin hardcodes de rutas**: usar `Path` y `config.py`
+
+## Patrón de detección estándar
+```python
+# ✅ Correcto
+detector = get_detector(use_gpu=True)         # factory auto-selecciona motor
+frame, results = detector.find_pose(frame)
+lm_list, bbox = detector.find_position(frame, results)
+is_falling = bbox.get("is_falling", False)    # YoloFallDetector
+# o bien: bbox["height"] / bbox["width"] < 0.75  (MediaPipe fallback)
+```
+
+## Nuevo módulo de detección → checklist
+- [ ] Archivo en `core/<nombre>_detector.py`
+- [ ] Clase con `find_pose()` y/o método `update()` + `draw()`
+- [ ] Registrado en `detector_factory.py`
+- [ ] Agregado como opción de módulo en `demo_config.json`

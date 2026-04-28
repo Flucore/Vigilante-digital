@@ -1,0 +1,126 @@
+{
+  "_comment": "Configuración del demo de 2 cámaras IP. Editar URLs con las IPs reales de los celulares.",
+  "demo": {
+    "title": "Vigilante Digital IA — Demo Ejecutivo",
+    "facility": "Instalaciones Cliente",
+    "operator": "Operador Demo",
+    "window_width": 1920,
+    "window_height": 540,
+    "show_fps": true,
+    "show_timestamp": true,
+    "alert_sound": true,
+    "auto_pdf_on_event": false,
+    "snapshot_dir": "test_outputs/snapshots",
+    "report_dir": "test_outputs"
+  },
+  "detection": {
+    "use_gpu": true,
+    "engine": "auto",
+    "min_fall_frames": 8,
+    "fall_angle_threshold_deg": 55,
+    "min_detection_confidence": 0.5,
+    "frame_scale": 1.0
+  },
+  "cameras": [
+    {
+      "id": "CAM_1",
+      "name": "Zona de Trabajo",
+      "url": "http://192.168.1.101:8080/video",
+      "zone": "Bodega A",
+      "sector": "Sector Norte",
+      "module": "fall_detection",
+      "enabled": true,
+      "reconnect_attempts": 10,
+      "reconnect_delay_sec": 2.0
+    },
+    {
+      "id": "CAM_2",
+      "name": "Polera Roja",
+      "url": "http://192.168.1.102:8080/video",
+      "zone": "Acceso Principal",
+      "sector": "Entrada",
+      "module": "red_shirt",
+      "enabled": true,
+      "reconnect_attempts": 10,
+      "reconnect_delay_sec": 2.0,
+      "min_presence_sec": 1.0,
+      "min_area_ratio": 0.025,
+      "cooldown_sec": 5.0,
+      "roi": [0, 0, 1280, 720],
+      "perimeter_line": {
+        "start": [100, 400],
+        "end": [1180, 400],
+        "label": "Línea de Seguridad"
+      }
+    },
+    {
+      "id": "CAM_3_TRAFFIC_EXAMPLE",
+      "name": "Lectura Semáforo",
+      "url": "http://192.168.1.103:8080/video",
+      "zone": "Banco de Pruebas Semáforo",
+      "sector": "Laboratorio",
+      "module": "traffic_light",
+      "enabled": false,
+      "reconnect_attempts": 10,
+      "reconnect_delay_sec": 2.0,
+      "roi": [450, 120, 360, 360],
+      "min_stable_sec": 0.4,
+      "min_color_ratio": 0.015
+    },
+    {
+      "id": "CAM_4_PERIMETER_EXAMPLE",
+      "name": "Perímetro",
+      "url": "http://192.168.1.104:8080/video",
+      "zone": "Zona Restringida",
+      "sector": "Patio",
+      "module": "perimeter",
+      "enabled": false,
+      "reconnect_attempts": 10,
+      "reconnect_delay_sec": 2.0,
+      "perimeter_line": {
+        "start": [100, 400],
+        "end": [1180, 400],
+        "label": "Línea de Seguridad"
+      }
+    }
+  ],
+  "triggers": {
+    "enabled": false,
+    "default_routes": ["speaker"],
+    "routes_by_event": {
+      "fall": ["speaker", "whatsapp", "email"],
+      "red_shirt_entry": ["speaker", "whatsapp"],
+      "traffic_light_change": ["webhook"],
+      "perimeter_breach": ["speaker", "whatsapp"]
+    },
+    "email": {
+      "recipient": "destinatario@empresa.cl",
+      "subject": "Alerta Vigilante Digital"
+    },
+    "whatsapp": {
+      "webhook_url": "http://localhost:8088/whatsapp",
+      "to": "+569XXXXXXXX",
+      "message_template": "Alerta Vigilante Digital"
+    },
+    "speaker": {
+      "host": "http://192.168.1.200:5000",
+      "volume": 80,
+      "mp3_url": null
+    },
+    "webhook": {
+      "url": "http://localhost:8088/events",
+      "timeout_sec": 5.0
+    }
+  },
+  "firebase": {
+    "enabled": false,
+    "collection": "Demo_Alertas",
+    "sync_interval_sec": 30
+  },
+  "pdf_report": {
+    "logo_path": null,
+    "facility_name": "Instalaciones Demo",
+    "camera_label": "Sistema Vigilante Digital",
+    "sector_label": "Zona de Prueba"
+  }
+}

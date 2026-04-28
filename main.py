@@ -101,10 +101,10 @@ def main(video_path: Optional[str] = None) -> None:
                         metadata=metadata
                     )
                     
-                    # Si se completó un evento (transición FALLING→NORMAL), subir a Firebase
+                    # Si se completó un evento (transición FALLING→NORMAL), guardar y subir
                     if completed_event:
                         LOG.info("Event completed: %s (duration %.2fs)", completed_event.get("event_type"), completed_event.get("duration_seconds"))
-                        connector.log_event(completed_event)
+                        event_logger.log_event(completed_event)
                         threading.Thread(target=connector.sync_new_events, daemon=True).start()
                     
                     if is_falling:
@@ -145,7 +145,8 @@ def main(video_path: Optional[str] = None) -> None:
             final_event = event_logger.finalize()
             if final_event:
                 LOG.info("Final event (forced): %s", final_event.get("event_type"))
-                connector.log_event(final_event)
+                event_logger.log_event(final_event)
+                connector.sync_new_events()
         
         # Señalar al hilo que debe parar y esperar un poco
         stop_event.clear()
