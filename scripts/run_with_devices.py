@@ -43,6 +43,7 @@ from inputs.ip_speaker import IpSpeaker
 from inputs.esp32_client import MQTTClient, TcpClient
 from inputs.usb_reader import SerialReader
 from outputs.report_generator import ReportGenerator
+import config
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("run_with_devices")
@@ -259,8 +260,11 @@ def main(
             # Mostrar el frame original (evitar redimensionado constante que consume CPU)
             frame_show = proc_frame
 
-            cv2.imshow("Vigilante Demo - Devices", frame_show)
-            key = cv2.waitKey(1) & 0xFF
+            if config.HEADLESS_MODE:
+                key = -1
+            else:
+                cv2.imshow("Vigilante Demo - Devices", frame_show)
+                key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
             elif key == ord('t') and file and ip:
@@ -288,7 +292,8 @@ def main(
                     LOG.warning("No hay evento disponible para generar reporte")
 
     finally:
-        cv2.destroyAllWindows()
+        if not config.HEADLESS_MODE:
+            cv2.destroyAllWindows()
         if file_cap:
             file_cap.release()
         if ip_stream:

@@ -11,7 +11,7 @@ import tempfile
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +31,11 @@ class EventLogger:
         """Inicializa el logger de eventos.
         
         Args:
-            file_path: Ruta al archivo JSON de eventos. Si es None, usa variable de entorno.
+            file_path: Ruta al archivo JSONL de eventos. Si es None, usa variable de entorno.
         """
         import os
         env_path = os.getenv("EVENT_LOG_PATH")
-        self.path: Path = Path(file_path or env_path or "events_log.json")
+        self.path: Path = Path(file_path or env_path or "events_log.jsonl")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         
         self._lock = threading.Lock()
@@ -104,7 +104,7 @@ class EventLogger:
             return completed_event
 
     def log_event(self, event: Dict[str, Any]) -> bool:
-        """Guarda un evento completado en JSON.
+        """Guarda un evento completado como una línea JSONL.
         
         Args:
             event: Evento a guardar (retornado por update())
@@ -114,36 +114,48 @@ class EventLogger:
         """
         try:
             with self._lock:
-                history = self._read_history()
-                history.append(event)
-                self._write_history(history)
+                self._append_event(event)
             return True
         except Exception as exc:
             logger.exception(f"Error guardando evento: {exc}")
             return False
 
     def _read_history(self) -> List[Dict[str, Any]]:
-        """Lee el archivo JSON de eventos."""
+        """Lee eventos desde JSONL y, por compatibilidad, desde arrays JSON legacy."""
         if not self.path.exists():
             return []
         
         try:
             with self.path.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            return data if isinstance(data, list) else []
+                first = fh.read(1)
+                fh.seek(0)
+                if first == "[":
+                    data = json.load(fh)
+                    return data if isinstance(data, list) else []
+                return list(_iter_jsonl(fh, self.path))
         except Exception:
             logger.exception(f"Error leyendo {self.path}")
             return []
 
+    def _append_event(self, event: Dict[str, Any]) -> None:
+        """Agrega un evento al final del archivo sin reescribir el historial."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        import os
+        with self.path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+
     def _write_history(self, history: List[Dict[str, Any]]) -> None:
-        """Escribe el archivo JSON de forma atómica."""
+        """Escribe el historial completo como JSONL de forma atómica."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(dir=str(self.path.parent))
         import os
         os.close(fd)
         try:
             with open(tmp_path, "w", encoding="utf-8") as fh:
-                json.dump(history, fh, indent=2, ensure_ascii=False)
+                for event in history:
+                    fh.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
                 fh.flush()
                 os.fsync(fh.fileno())
             os.replace(tmp_path, str(self.path))
@@ -203,3 +215,18 @@ class EventLogger:
 
             logger.info(f"[FALL_FINALIZE] Evento finalizado forzadamente. Duración: {duration:.2f}s")
             return event
+
+
+def _iter_jsonl(lines: Iterable[str], path: Path) -> Iterable[Dict[str, Any]]:
+    """Itera objetos JSONL, ignorando líneas vacías y corruptas."""
+    for line_no, line in enumerate(lines, start=1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            logger.warning("Línea JSONL inválida en %s:%d; se omite", path, line_no)
+            continue
+        if isinstance(item, dict):
+            yield item

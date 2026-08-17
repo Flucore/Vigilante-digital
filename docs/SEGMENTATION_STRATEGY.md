@@ -1,143 +1,78 @@
 # Estrategia de Segmentación
 
-## Por qué Segmentación
+| Campo | Valor |
+|---|---|
+| Estado | Vigente (elevado Unidad 3 · 2026-08-16) |
+| Canónico | [REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md](REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md) |
 
-La detección por bounding box dice "hay algo aquí". La segmentación dice "estos píxeles pertenecen a ese objeto". Para seguridad inteligente esto importa porque muchas decisiones dependen de región exacta:
+## Tesis
 
-- ¿La persona cruzó una línea?
-- ¿La polera es realmente roja o solo hay un cartel rojo detrás?
-- ¿La luz cambió o cambió el fondo?
-- ¿La persona usa EPP?
-- ¿El objeto es arma, herramienta o sombra?
+La detección por **bounding box** dice “hay algo aquí”.  
+La **máscara** dice “estos píxeles son el objeto”.  
+**No se abandona el bbox:** el stack es híbrido (velocidad + geometría + forense).
 
-## Segmentación para la Demo
+**Calibrar ≠ Entrenar.** Una máscara de piscina en config (M0) no es un modelo reentrenado.
 
-### 1. Segmentación HSV por color
+## Capas de percepción (híbrido)
 
-Usada en:
-
-- polera roja,
-- semáforo/luz.
-
-Ventajas:
-
-- rápida,
-- explicable,
-- no requiere entrenamiento,
-- ideal para maqueta.
-
-Limitaciones:
-
-- sensible a iluminación,
-- falsos positivos con objetos del mismo color,
-- requiere ROI o escena controlada.
-
-### 2. Segmentación por ROI
-
-Usada en:
-
-- semáforo,
-- zonas de interés,
-- perímetro.
-
-Ventajas:
-
-- reduce ruido,
-- mejora velocidad,
-- fácil de explicar comercialmente.
-
-Limitaciones:
-
-- si la cámara se mueve, hay que recalibrar.
-
-## Segmentación para Piloto
-
-### 3. YOLOv8-seg
-
-Uso propuesto:
-
-- personas,
-- vehículos,
-- armas,
-- EPP,
-- objetos abandonados,
-- intrusión en zonas.
-
-Ventajas:
-
-- segmenta instancias,
-- rápido con GPU,
-- entrenable con dataset propio.
-
-Limitaciones:
-
-- necesita anotaciones tipo máscara o polígonos,
-- requiere entrenamiento y evaluación.
-
-### 4. Segment Anything Model (SAM/SAM2)
-
-Uso propuesto:
-
-- etiquetado asistido por humano,
-- generación inicial de máscaras,
-- creación rápida de dataset.
-
-Ventajas:
-
-- acelera anotación,
-- funciona con prompts visuales,
-- muy útil en fase de dataset.
-
-Limitaciones:
-
-- pesado para inferencia continua,
-- no clasifica por sí mismo.
-
-### 5. Segmentación térmica
-
-Uso propuesto:
-
-- altas/bajas temperaturas,
-- presencia humana en oscuridad,
-- puntos calientes,
-- maquinaria anómala.
-
-Técnica:
-
-- umbrales por temperatura,
-- blobs térmicos,
-- calibración por cámara,
-- fusión RGB + térmica si hay doble sensor.
-
-## Recomendación de Ruta
-
-### Demo inmediata
-
-- HSV + ROI.
-- YOLOv8-pose para caída.
-- Perímetro por línea virtual.
-
-### Piloto 90 días
-
-- YOLOv8-seg para persona/objeto.
-- Dataset propio por cliente.
-- SAM para asistencia de etiquetado.
-- Evaluación por módulo.
-
-### Producto
-
-- Segmentación por instancia para personas/objetos.
-- Segmentación térmica para cámaras FLIR/Lepton.
-- Fusión de sensores: RGB + térmico + audio + IoT.
-
-## Criterio de Selección
-
-| Caso | Técnica inicial | Técnica final |
+| Capa | Para qué | Ejemplo |
 |---|---|---|
-| Caída | YOLOv8-pose | Modelo entrenado con secuencias |
-| Polera roja | HSV + ROI | Segmentación persona + clasificador torso |
-| Semáforo/luz | HSV + ROI | Detector de luz + lectura color |
-| Perímetro | bbox + línea | máscara persona + geofencing |
-| Armas | YOLO detect | YOLOv8-seg custom |
-| Temperatura | umbral térmico | fusión térmica + reglas por activo |
+| BBox + pose | Velocidad, caída, trepada | Care & Fall, climb |
+| Máscara de instancia (YOLO-seg) | Geometría exacta en edge | Pie ∩ borde piscina |
+| SAM/SAM2 | Anotación y commissioning | Operador calibra M0 / etiqueta dataset |
+| Semántica de escena (futuro) | Agua vs patio vs muro | Contexto de Aqua |
+| Reglas espacial-temporales | Criterio (M3) | IoU + persistencia + after_hours |
+| Clasificador fino (M2) | Taxonomía cliente | Cat vs Komatsu |
 
+## SAM / SAM2 — reglas
+
+| Sí | No |
+|---|---|
+| Backend de anotación y commissioning | Loop 24/7 de cámara |
+| Un clic → polígono de piscina/muro (M0) | “El sistema entiende la piscina” sin detector+IoU |
+| Acelerar dataset (máscaras) | Clasificar por sí mismo |
+| SAM2 propagar N frames de video | Sustituir YOLOv8-seg en edge |
+
+SAM **recorta píxeles**; no asigna clase de negocio.
+
+## YOLOv8/v11-seg en edge (M1)
+
+- Instancias: persona, vehículo, animal, excavator…  
+- Geofencing: máscara ∩ `SiteZoneMask` (IoU + tiempo).  
+- Forense: guardar bbox **y** polígono/RLE cuando esté disponible.  
+- Degradación: si no hay ultralytics, bbox fallback (ya en `segmentation_detector`).
+
+## Técnicas actuales de demo (conservar)
+
+| Técnica | Uso | Límite |
+|---|---|---|
+| HSV + ROI | Polera roja, semáforo | Iluminación / mismos colores |
+| Línea virtual | Perímetro demo | No es muro irregular (M0) |
+| YOLOv8-pose | Caída | No reemplaza máscara de zona |
+
+## Ruta por horizonte
+
+| Horizonte | Segmentación |
+|---|---|
+| Demo / piloto inmediato | Pose + línea/ROI; HSV donde aporte |
+| Comercial C1 (Aprendizaje-A) | M0 máscara zona + IoU con persona (bbox o seg) |
+| Piloto 90 días | YOLO-seg persona/objeto + SAM solo en etiquetado |
+| Académico C–D | Taxonomía M2 + promote; no “un YOLO para todo” |
+
+## Criterio de selección (actualizado)
+
+| Caso | Inicial | Objetivo |
+|---|---|---|
+| Caída | YOLO-pose | Pose + validación temporal (+ secuencia auditada) |
+| Piscina | Polígono M0 + person ∩ zona | Máscara fina + IoU + persistencia |
+| Muro / climb | Línea o zona_wall + pose | `intrusion_climb` (M3), no clase YOLO única |
+| Flota | Detector excavator | M2 clasificador fino + flota_autorizada |
+| Polera / luz | HSV + ROI | Persona-seg + clasificador atributo |
+| Dataset | Manual + add_dataset_image | SAM assist + gold-set |
+
+## Anti-patrones
+
+- “Abandonamos los bounding boxes.”  
+- “SAM corre en la cámara.”  
+- Un solo YOLOv8-seg con 80 clases custom del cliente.  
+- Fotos de catálogo sin crops CCTV → producción.

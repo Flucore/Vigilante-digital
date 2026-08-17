@@ -1,3 +1,5 @@
+> **HISTÓRICO.** No es fuente de verdad. Usar `README.md`, `MASTER_DEVELOPMENT_PLAN.md` y `docs/REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md`.
+
 # RESUMEN EJECUTIVO: Análisis y Preparación para Pruebas
 
 **Proyecto:** Vigilante Digital IA - Sistema de Detección de Caídas en Tiempo Real  

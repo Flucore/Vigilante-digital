@@ -1,3 +1,5 @@
+> **HISTÓRICO.** No es fuente de verdad. Usar `MASTER_DEVELOPMENT_PLAN.md`, `DESARROLLO_EJECUTABLE.md` y `docs/REFORMULACION/`.
+
 # RESUMEN EJECUTIVO: VigilanteDigital v2.0 - Arquitectura Optimizada
 
 **Fecha:** 2024  

@@ -1,111 +1,95 @@
 # Flujo de Aprendizaje Human-in-the-Loop
 
-## Objetivo
+| Campo | Valor |
+|---|---|
+| Estado | Vigente (elevado Unidad 3 · 2026-08-16) |
+| Canónico de arquitectura | [REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md](REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md) |
+| Glosario | [REFORMULACION/03_GLOSARIO.md](REFORMULACION/03_GLOSARIO.md) |
 
-Permitir que el sistema aprenda de imágenes reales cargadas por el humano, sin prometer entrenamiento automático prematuro. La primera versión organiza imágenes, etiquetas y metadata; la siguiente etapa exporta a YOLO y entrena modelos.
+## Principio (inamovible)
 
-## Flujo Actual Implementado
+El sistema aprende cuando el **humano** valida evidencia real.  
+**La IA no se autocorrije** con datos no verificados.  
+**Calibrar ≠ Entrenar.** Un polígono de piscina no es un `.pt`.
+
+## Contrato: cuatro memorias
+
+| Memoria | Qué hace el humano | ¿Train? |
+|---|---|---|
+| **M0** Geométrica | Calibra zonas con SAM/asistente (piscina, muro, gallinero…) | No |
+| **M1** Percepción | No “enseña” clases COCO en cada auditoría; reporta fallos sistemáticos | Solo si clase gruesa falla de verdad |
+| **M2** Taxonomía | Valida subclases; sube álbum + crops del sitio (domain mix) | Clasificador fino / adapter |
+| **M3** Conductual | Confirma o corrige eventos compuestos; marca FN | Reglas primero; secuencia después |
+
+Detalle y promote: ver doc `05_…`.
+
+## Loop objetivo (servicios lógicos)
 
 ```text
-Evento detectado
-    ↓
-Snapshot en test_outputs/snapshots
-    ↓
-Humano revisa la imagen
-    ↓
-Humano etiqueta con scripts/add_dataset_image.py
-    ↓
-Imagen copiada a datasets/vigilante/images/<label>
-    ↓
-Registro agregado a datasets/vigilante/manifest.jsonl
+Inferencia edge (M1) + zonas (M0) + reglas (M3)
+        ↓
+  alertas  |  Motor de Curiosidad (no umbral único)
+        ↓
+  Dashboard HITL (reviewer_id)
+        ↓
+  Dataset versionado + Gold-set (nunca en train)
+        ↓
+  Train en hub → ModelCard → shadow → canary → promote / rollback
 ```
 
-## Comando para Cargar Imagen
+El edge **nunca** entrena. Open-vocab solo como siembra en hub.
+
+## Flujo actual implementado (semilla)
+
+Sigue válido como MVP de etiquetado manual:
+
+```text
+Evento / snapshot
+  → humano revisa
+  → scripts/add_dataset_image.py
+  → datasets/vigilante/images/<label>
+  → manifest.jsonl
+```
 
 ```powershell
 python scripts/add_dataset_image.py `
   --image test_outputs/snapshots/CAM_1_fall_20260428_010000.jpg `
   --label fall `
-  --reviewer valen `
-  --notes "caida simulada demo, iluminacion buena"
+  --reviewer operator `
+  --notes "demo controlada"
 ```
 
-## Etiquetas Iniciales
+Módulo: `core/learning_dataset.py`.
 
-### Caídas
+## Etiquetas iniciales (operativas)
 
-- `fall`
-- `normal`
-- `sitting`
-- `bending`
-- `lying_no_fall`
+Caídas: `fall`, `normal`, `sitting`, `bending`, `lying_no_fall`, `ambiguous`  
+Perímetro: `perimeter_breach`, `perimeter_normal`  
+Color/luz (demo): `red_shirt`, `not_red_shirt`, `traffic_*`  
+Aprendizaje rico (objetivo): además `falso_positivo`, `falso_negativo`, `nueva_clase`, `zona_mal_calibrada`
 
-### Polera Roja
+## Reglas de etiquetado
 
-- `red_shirt`
-- `not_red_shirt`
-- `red_object_false_positive`
+1. Solo imágenes claras; si hay duda → `ambiguous`.
+2. Guardar FP y FN (FN = valor máximo: lo que el modelo no vio).
+3. “Problema de cámara/iluminación” → calibración M0, **no** train.
+4. Sin consentimiento/base legal: no cargar personas a dataset.
+5. Cliente A no mezcla con cliente B.
+6. Preferir recortes/máscaras sin rostro si el objetivo no es identidad.
+7. Catálogo de producto **solo** junto a crops CCTV del sitio (domain gap).
 
-### Semáforo/Luz
+## Prohibido documentar u operar como “listo”
 
-- `traffic_red`
-- `traffic_yellow`
-- `traffic_green`
-- `traffic_off`
-- `traffic_ambiguous`
+- Auto-mejora sin HITL.
+- “300 fotos → fine-tune → deploy a todas las cámaras”.
+- Entrenar clase YOLO `ladron_saltando_muro` / `zorro_atacando`.
+- SAM en inferencia 24/7 de cámara.
 
-### Perímetro
+## Próximas etapas (orden = sprints A–D)
 
-- `perimeter_breach`
-- `perimeter_normal`
+1. **A:** M0 + IoU (calibración), sin train.  
+2. **B:** cola de curiosidad + HITL + manifiesto con máscara/motivo.  
+3. **C:** export YOLO/cls + M2 domain mix + ModelCard.  
+4. **D:** job de train + shadow/canary/rollback.
 
-### Futuro
-
-- `weapon`
-- `tool`
-- `helmet`
-- `no_helmet`
-- `thermal_hotspot`
-- `thermal_coldspot`
-
-## Reglas de Etiquetado
-
-1. Etiquetar solo imágenes claras.
-2. Si hay duda, usar etiqueta `ambiguous`.
-3. Guardar falsos positivos como dataset útil.
-4. Guardar falsos negativos manualmente si el sistema no detectó el evento.
-5. No cargar imágenes sensibles sin consentimiento o base legal.
-
-## Próxima Etapa
-
-### Exportador YOLO
-
-Crear script:
-
-```text
-scripts/export_yolo_dataset.py
-```
-
-Debe convertir `manifest.jsonl` a:
-
-```text
-datasets/yolo/
-  images/train
-  images/val
-  labels/train
-  labels/val
-  data.yaml
-```
-
-### Anotación con Segmentación
-
-Para objetos y EPP se requiere bounding box o máscara:
-
-- usar CVAT/Label Studio,
-- o integrar SAM para generar máscara asistida,
-- luego exportar a YOLOv8 detect/seg.
-
-## Principio
-
-El sistema aprende cuando el humano valida evidencia real. La IA no debe autocorregirse con datos no verificados, porque eso amplifica errores.
-
+Script futuro (no implementar en ola DOCS): `scripts/export_yolo_dataset.py` con split y **exclusión explícita del gold-set**.

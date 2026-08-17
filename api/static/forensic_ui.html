@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vigilante Digital — Auditoría Forense</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #181c27;
+    --border:   #2a2e3d;
+    --accent:   #f57c00;
+    --accent2:  #e65100;
+    --text:     #e0e4ef;
+    --muted:    #7a8099;
+    --success:  #43a047;
+    --warning:  #fb8c00;
+    --danger:   #e53935;
+    --radius:   6px;
+    --font:     'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    color: var(--text);
+  }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .badge {
+    background: #1e2235;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  #db-mode { color: var(--accent); font-weight: 600; }
+
+  /* ── Layout ── */
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+
+  /* ── Stats cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+
+  /* ── Search section ── */
+  .search-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .search-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 14px;
+  }
+  .search-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto auto;
+    gap: 10px;
+    align-items: end;
+  }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+  .field input, .field select {
+    background: #0f1117;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select option { background: #1a1e2e; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 7px 16px;
+    border-radius: 4px;
+    border: none;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { opacity: 0.7; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: #252a3a; color: var(--text); border: 1px solid var(--border); }
+  .btn-export { background: #1e3a2b; color: #6bcf8a; border: 1px solid #2d5a42; }
+
+  .btn-group { display: flex; gap: 8px; align-items: flex-end; }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .tab {
+    padding: 8px 18px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Results ── */
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .results-count { font-size: 12px; color: var(--muted); }
+  .results-count span { color: var(--text); font-weight: 600; }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: #1a1e2e;
+    padding: 9px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid #1e2235;
+    transition: background 0.1s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #1a1e2e; }
+  tbody td {
+    padding: 9px 14px;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  /* ── Pills ── */
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pill-person  { background: #1e3350; color: #6ba3e8; }
+  .pill-car     { background: #1e3323; color: #6bce8a; }
+  .pill-default { background: #2a2035; color: #a07ec8; }
+  .pill-level1  { background: #1e2235; color: var(--muted); }
+  .pill-level2  { background: #2d2610; color: var(--warning); }
+  .pill-level3  { background: #2d1010; color: var(--danger); }
+
+  /* ── Color dot ── */
+  .color-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  /* ── Loading / empty ── */
+  .state-msg {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Confidence bar ── */
+  .conf-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 80px;
+  }
+  .conf-track {
+    flex: 1;
+    height: 4px;
+    background: #2a2e3d;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .conf-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .search-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Vigilante Digital
+    <span style="color:var(--muted); font-weight:400; font-size:12px;">Auditoría Forense</span>
+  </div>
+  <div class="header-right">
+    <div class="badge">BD: <span id="db-mode">—</span></div>
+    <div class="badge" id="last-query-badge">Lista</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-detections">—</div>
+      <div class="stat-label">Total Detecciones</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-events">—</div>
+      <div class="stat-label">Eventos Confirmados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-cameras">—</div>
+      <div class="stat-label">Cámaras Activas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-last" style="font-size:13px; padding-top:4px;">—</div>
+      <div class="stat-label">Última Detección</div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-section">
+    <div class="search-title">Buscar en el Índice Forense</div>
+    <div class="search-row">
+      <div class="field">
+        <label>Objeto / Clase</label>
+        <input type="text" id="q-class" placeholder='ej: "car", "person"'>
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <input type="text" id="q-color" placeholder='ej: "white", "red"'>
+      </div>
+      <div class="field">
+        <label>Cámara ID</label>
+        <input type="text" id="q-camera" placeholder="CAM_ENTRADA_AUTOS">
+      </div>
+      <div class="field">
+        <label>Desde</label>
+        <input type="datetime-local" id="q-from">
+      </div>
+      <div class="field">
+        <label>Hasta</label>
+        <input type="datetime-local" id="q-to">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="searchDetections()">Buscar</button>
+        <button class="btn btn-secondary" onclick="clearSearch()">Limpiar</button>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-export" onclick="exportCSV()">&#8615; CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" id="tab-detections" onclick="switchTab('detections')">Detecciones</div>
+    <div class="tab" id="tab-events" onclick="switchTab('events')">Eventos</div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-header">
+    <div class="results-count">Resultados: <span id="result-count">—</span></div>
+  </div>
+
+  <div class="table-wrap">
+    <div id="table-container">
+      <div class="state-msg">Ingresa un criterio de búsqueda y presiona <strong>Buscar</strong>.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = window.location.origin;
+let currentTab = 'detections';
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/api/v1/stats/summary`);
+    const d = await r.json();
+    document.getElementById('stat-detections').textContent = fmt(d.total_detections);
+    document.getElementById('stat-events').textContent     = fmt(d.total_events);
+    document.getElementById('stat-cameras').textContent    = fmt(d.active_cameras);
+    document.getElementById('stat-last').textContent       = fmtTs(d.last_detection);
+    document.getElementById('db-mode').textContent         = d.mode || '?';
+  } catch(e) {
+    document.getElementById('db-mode').textContent = 'offline';
+  }
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  document.getElementById('table-container').innerHTML =
+    '<div class="state-msg">Presiona <strong>Buscar</strong> para cargar resultados.</div>';
+  document.getElementById('result-count').textContent = '—';
+}
+
+// ── Búsqueda ─────────────────────────────────────────────────────────────────
+async function searchDetections() {
+  const p = buildParams();
+  setLoading();
+  try {
+    if (currentTab === 'detections') {
+      const r = await fetch(`${API}/api/v1/search?${p}`);
+      const d = await r.json();
+      renderDetections(d.results, d.total);
+    } else {
+      const r = await fetch(`${API}/api/v1/events?${p}`);
+      const d = await r.json();
+      renderEvents(d.results, d.total);
+    }
+    setLastQuery(p);
+  } catch(e) {
+    document.getElementById('table-container').innerHTML =
+      `<div class="state-msg" style="color:var(--danger)">Error al conectar con la API: ${e.message}</div>`;
+  }
+}
+
+function buildParams() {
+  const p = new URLSearchParams();
+  const cls  = document.getElementById('q-class').value.trim();
+  const col  = document.getElementById('q-color').value.trim();
+  const cam  = document.getElementById('q-camera').value.trim();
+  const frm  = document.getElementById('q-from').value;
+  const to   = document.getElementById('q-to').value;
+  if (cls) p.set('object_class', cls);
+  if (col) p.set('color', col);
+  if (cam) p.set('camera_id', cam);
+  if (frm) p.set('from', new Date(frm).toISOString());
+  if (to)  p.set('to',   new Date(to).toISOString());
+  p.set('limit', '200');
+  return p.toString();
+}
+
+function clearSearch() {
+  ['q-class','q-color','q-camera','q-from','q-to'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('table-container').innerHTML =
+    '<div class="state-msg">Búsqueda limpiada.</div>';
+  document.getElementById('result-count').textContent = '—';
+}
+
+// ── Render detecciones ───────────────────────────────────────────────────────
+function renderDetections(rows, total) {
+  document.getElementById('result-count').textContent = total;
+  if (!rows || rows.length === 0) {
+    document.getElementById('table-container').innerHTML =
+      '<div class="state-msg">Sin resultados para los filtros aplicados.</div>';
+    return;
+  }
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Cámara</th>
+          <th>Objeto</th>
+          <th>Color</th>
+          <th>Confianza</th>
+          <th>Frame</th>
+          <th>Track ID</th>
+        </tr>
+      </thead>
+      <tbody>${rows.map(r => rowDet(r)).join('')}</tbody>
+    </table>`;
+  document.getElementById('table-container').innerHTML = html;
+}
+
+function rowDet(r) {
+  const cls   = r.object_class || '—';
+  const color = r.color_label  || '—';
+  const conf  = parseFloat(r.confidence || 0);
+  const confPct = Math.round(conf * 100);
+  return `<tr>
+    <td style="color:var(--muted)">${fmtTs(r.timestamp)}</td>
+    <td>${r.camera_id || '—'}</td>
+    <td><span class="pill ${pillClass(cls)}">${cls}</span></td>
+    <td><span class="color-dot" style="background:${colorHex(color)}"></span>${color}</td>
+    <td>
+      <div class="conf-bar">
+        <div class="conf-track"><div class="conf-fill" style="width:${confPct}%"></div></div>
+        <span style="font-size:10px;color:var(--muted)">${confPct}%</span>
+      </div>
+    </td>
+    <td style="color:var(--muted)">${r.frame_idx ?? '—'}</td>
+    <td style="color:var(--muted)">${r.track_id ?? '—'}</td>
+  </tr>`;
+}
+
+// ── Render eventos ───────────────────────────────────────────────────────────
+function renderEvents(rows, total) {
+  document.getElementById('result-count').textContent = total;
+  if (!rows || rows.length === 0) {
+    document.getElementById('table-container').innerHTML =
+      '<div class="state-msg">Sin eventos para los filtros aplicados.</div>';
+    return;
+  }
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Inicio</th>
+          <th>Cámara</th>
+          <th>Tipo</th>
+          <th>Duración</th>
+          <th>Nivel</th>
+          <th>Evidencia</th>
+          <th>Confirmado</th>
+        </tr>
+      </thead>
+      <tbody>${rows.map(r => rowEvt(r)).join('')}</tbody>
+    </table>`;
+  document.getElementById('table-container').innerHTML = html;
+}
+
+function rowEvt(r) {
+  const lvl = parseInt(r.alert_level || 1);
+  const lvlLabel = ['', 'Log', 'Notify', 'CRÍTICO'][lvl] || '?';
+  const lvlCls   = `pill-level${lvl}`;
+  const acked = r.acknowledged ? '&#10003; Sí' : '<span style="color:var(--muted)">No</span>';
+  const photo = r.photo_path
+    ? `<span style="color:var(--success); font-size:11px">&#128247; JPG</span>`
+    : `<span style="color:var(--muted)">—</span>`;
+  return `<tr>
+    <td style="color:var(--muted)">${fmtTs(r.start_time)}</td>
+    <td>${r.camera_id || '—'}</td>
+    <td><span class="pill ${pillClass(r.event_type)}">${r.event_type || '—'}</span></td>
+    <td>${r.duration_seconds != null ? r.duration_seconds.toFixed(1) + 's' : '—'}</td>
+    <td><span class="pill ${lvlCls}">${lvlLabel}</span></td>
+    <td>${photo}</td>
+    <td>${acked}</td>
+  </tr>`;
+}
+
+// ── Export ───────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const p = buildParams();
+  window.location.href = `${API}/api/v1/export/csv?${p}`;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function setLoading() {
+  document.getElementById('table-container').innerHTML =
+    '<div class="state-msg"><span class="spinner"></span>Consultando índice forense...</div>';
+  document.getElementById('result-count').textContent = '…';
+}
+
+function setLastQuery(params) {
+  const badge = document.getElementById('last-query-badge');
+  badge.textContent = `Última búsqueda: ${new Date().toLocaleTimeString('es-CL')}`;
+}
+
+function fmt(n) { return n != null ? Number(n).toLocaleString('es-CL') : '—'; }
+
+function fmtTs(ts) {
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts);
+    return d.toLocaleString('es-CL', { dateStyle:'short', timeStyle:'medium' });
+  } catch { return ts.slice(0, 19); }
+}
+
+function pillClass(cls) {
+  if (!cls) return 'pill-default';
+  const c = cls.toLowerCase();
+  if (c.includes('person') || c.includes('fall') || c.includes('human')) return 'pill-person';
+  if (c.includes('car') || c.includes('truck') || c.includes('vehicle') || c.includes('auto')) return 'pill-car';
+  return 'pill-default';
+}
+
+function colorHex(color) {
+  const map = {
+    red:'#e53935', orange:'#fb8c00', yellow:'#fdd835', green:'#43a047',
+    blue:'#1e88e5', purple:'#8e24aa', white:'#f5f5f5', black:'#212121',
+    gray:'#757575', grey:'#757575', mixed:'#9e9e9e', unknown:'#424242',
+  };
+  return map[(color || '').toLowerCase()] || '#424242';
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+loadStats();
+setInterval(loadStats, 30000);
+</script>
+</body>
+</html>

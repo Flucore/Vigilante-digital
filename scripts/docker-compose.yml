@@ -1,0 +1,146 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Vigilante Digital v2.0 — Docker Compose
+# Sistema completo: Runner + API + PostgreSQL + Nginx
+#
+# Uso:
+#   1. Copiar .env.example a .env y completar variables
+#   2. docker compose up -d
+#   3. Abrir https://localhost/  (panel de operador + auditoría forense)
+#
+# Requiere:
+#   - Docker Engine 24+ y Docker Compose v2
+#   - GPU: nvidia-container-toolkit instalado (para runner con CUDA)
+#   - Ubuntu 22.04 LTS recomendado
+# ══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL + TimescaleDB ────────────────────────────────────────────────
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: vigilante_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-vigilante}
+      POSTGRES_USER:     ${POSTGRES_USER:-vigilante}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./outputs/forensic_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"   # solo acceso local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vigilante} -d ${POSTGRES_DB:-vigilante}"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+    networks:
+      - vigilante_net
+
+  # ── API Forense + Panel de Operador ────────────────────────────────────────
+  vigilante-api:
+    build:
+      context: ..
+      dockerfile: scripts/Dockerfile.api
+    container_name: vigilante_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL:       "postgresql://${POSTGRES_USER:-vigilante}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vigilante}"
+      API_SECRET_KEY:     ${API_SECRET_KEY}
+      WEBHOOK_SECRET:     ${WEBHOOK_SECRET}
+      CORS_ORIGINS:       ${CORS_ORIGINS:-*}
+      VIGILANTE_CONFIG:   /app/client_config.json
+      VIGILANTE_NODE_ID:  ${VIGILANTE_NODE_ID:-node_01}
+      ENABLE_DOCS:        ${ENABLE_DOCS:-false}
+      PANEL_JPEG_QUALITY: ${PANEL_JPEG_QUALITY:-60}
+      TZ:                 ${TZ:-America/Santiago}
+    volumes:
+      - ../client_config.json:/app/client_config.json:ro
+      - outputs_data:/app/outputs
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 15s
+      timeout:  5s
+      retries:  3
+    networks:
+      - vigilante_net
+
+  # ── Runner de detección ────────────────────────────────────────────────────
+  vigilante-runner:
+    build:
+      context: ..
+      dockerfile: scripts/Dockerfile.runner
+    container_name: vigilante_runner
+    restart: unless-stopped
+    depends_on:
+      vigilante-api:
+        condition: service_healthy
+    environment:
+      DATABASE_URL:      "postgresql://${POSTGRES_USER:-vigilante}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vigilante}"
+      VIGILANTE_CONFIG:  /app/client_config.json
+      RUNNER_MODE:       ${RUNNER_MODE:-realtime}
+      VIGILANTE_NODE_ID: ${VIGILANTE_NODE_ID:-node_01}
+      HUB_API_KEY:       ${HUB_API_KEY}
+      HUB_URL:           ${HUB_URL}
+      TZ:                ${TZ:-America/Santiago}
+      # Cámaras (se leen desde client_config.json con _env)
+      CAM_01_URL:        ${CAM_01_URL}
+      CAM_02_URL:        ${CAM_02_URL}
+      CAM_03_URL:        ${CAM_03_URL}
+      CAM_04_URL:        ${CAM_04_URL}
+      CAM_05_URL:        ${CAM_05_URL}
+      CAM_06_URL:        ${CAM_06_URL}
+      MQTT_BROKER:       ${MQTT_BROKER}
+      SMTP_PASSWORD:     ${SMTP_PASSWORD}
+    volumes:
+      - ../client_config.json:/app/client_config.json:ro
+      - outputs_data:/app/outputs
+      - captures_data:/app/captures
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - vigilante_net
+
+  # ── Nginx reverse proxy con TLS ────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: vigilante_nginx
+    restart: unless-stopped
+    depends_on:
+      - vigilante-api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/vigilante.conf:ro
+      - certs_data:/etc/nginx/certs:ro
+    networks:
+      - vigilante_net
+
+# ── Volúmenes persistentes ──────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  outputs_data:
+    driver: local
+  captures_data:
+    driver: local
+  certs_data:
+    driver: local
+
+# ── Red interna ─────────────────────────────────────────────────────────────
+networks:
+  vigilante_net:
+    driver: bridge

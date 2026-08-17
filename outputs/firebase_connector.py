@@ -1,4 +1,4 @@
-"""Connector to sync local JSON events to Firestore.
+"""Connector to sync local JSONL events to Firestore.
 
 This module does NOT contain credentials. It reads paths and settings from
 `config.py` or from constructor parameters. Follow ARCHITECTURE.md rules: keep
@@ -14,7 +14,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 try:
     import firebase_admin
@@ -30,14 +30,14 @@ logger = logging.getLogger(__name__)
 
 
 class FirebaseConnector:
-    """Synchronizes local JSON events into Firestore.
+    """Synchronizes local JSONL events into Firestore.
 
     Configuration (preferred in `config.py` or passed to constructor):
       - FIREBASE_CREDENTIALS_PATH: path to service account JSON (optional if using
         ADC / env var `GOOGLE_APPLICATION_CREDENTIALS`).
       - FIREBASE_PROJECT_ID: optional project id.
       - FIRESTORE_COLLECTION: collection name (default: "events").
-      - JSON_LOG_PATH: path to JSON history written by `JSONLogger`.
+      - JSON_LOG_PATH: path to JSONL history written by `JSONLogger`.
 
     The connector keeps a small state file recording the ISO timestamp of the
     last-uploaded event to avoid duplicates.
@@ -63,13 +63,14 @@ class FirebaseConnector:
         self.credentials_path: Optional[Path] = Path(credentials_path) if credentials_path else (Path(cfg_cred) if cfg_cred else None)
         self.project_id: Optional[str] = cfg_proj
         self.collection: str = collection or cfg_collection or "events"
-        self.json_log_path: Path = Path(json_log_path or cfg_json_log or "events_history.json")
+        self.json_log_path: Path = Path(json_log_path or cfg_json_log or "events_history.jsonl")
         self.state_path: Path = Path(state_path or (self.json_log_path.parent / f".{self.json_log_path.name}.state"))
 
         self.max_retries = max_retries
         self.retry_backoff = float(retry_backoff)
 
         self._lock = threading.Lock()
+        self._sync_gate = threading.Lock()
         self.client = None
         self._init_firebase()
 
@@ -101,19 +102,24 @@ class FirebaseConnector:
             self.client = None
 
     def _read_history(self) -> List[Dict[str, Any]]:
-        """Reads the JSON history file produced by JSONLogger.
+        """Reads the JSONL history file produced by JSONLogger/EventLogger.
 
+        Legacy JSON arrays are still accepted to avoid breaking older installs.
         Returns an empty list on errors.
         """
         try:
             if not self.json_log_path.exists():
                 return []
             with self.json_log_path.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, list):
-                return data
-            self._backup_corrupt_file("not-a-list")
-            return []
+                first = fh.read(1)
+                fh.seek(0)
+                if first == "[":
+                    data = json.load(fh)
+                    if isinstance(data, list):
+                        return data
+                    self._backup_corrupt_file("not-a-list")
+                    return []
+                return list(_iter_jsonl(fh, self.json_log_path, self.logger))
         except json.JSONDecodeError:
             self._backup_corrupt_file("json-decode-error")
             return []
@@ -188,45 +194,71 @@ class FirebaseConnector:
         return False
 
     def sync_new_events(self) -> int:
-        """Synchronize new events from the local JSON file to Firestore.
+        """Synchronize new events from the local JSONL file to Firestore.
 
         Returns the number of events uploaded.
         """
-        with self._lock:
-            history = self._read_history()
-            if not history:
-                return 0
+        if not self._sync_gate.acquire(blocking=False):
+            self.logger.debug("Firebase sync already running; skipping overlapping request")
+            return 0
 
-            last_state = self._read_state()
-            last_dt = self._parse_iso(last_state) if last_state else None
+        try:
+            with self._lock:
+                history = self._read_history()
+                if not history:
+                    return 0
 
-            candidates: List[Tuple[datetime, Dict[str, Any]]] = []
-            for ev in history:
-                # Normalizar: EventLogger emite start_time, JSONLogger emite timestamp
-                ts = ev.get("timestamp") or ev.get("start_time")
-                if not ts:
-                    continue
-                ev_dt = self._parse_iso(ts)
-                if ev_dt is None:
-                    continue
-                if last_dt is None or ev_dt > last_dt:
-                    # Garantizar que el doc a subir tenga campo "timestamp"
-                    normalized = dict(ev)
-                    if "timestamp" not in normalized:
-                        normalized["timestamp"] = ts
-                    candidates.append((ev_dt, normalized))
+                last_state = self._read_state()
+                last_dt = self._parse_iso(last_state) if last_state else None
 
-            # Sort by timestamp ascending
-            candidates.sort(key=lambda x: x[0])
+                candidates: List[Tuple[datetime, Dict[str, Any]]] = []
+                for ev in history:
+                    # Normalizar: EventLogger emite start_time, JSONLogger emite timestamp
+                    ts = ev.get("timestamp") or ev.get("start_time")
+                    if not ts:
+                        continue
+                    ev_dt = self._parse_iso(str(ts))
+                    if ev_dt is None:
+                        continue
+                    if last_dt is None or ev_dt > last_dt:
+                        # Garantizar que el doc a subir tenga campo "timestamp"
+                        normalized = dict(ev)
+                        if "timestamp" not in normalized:
+                            normalized["timestamp"] = ts
+                        candidates.append((ev_dt, normalized))
+
+                # Sort by timestamp ascending
+                candidates.sort(key=lambda x: x[0])
 
             uploaded = 0
             for ev_dt, ev in candidates:
-                if self._upload_event(ev):
-                    uploaded += 1
-                    # Update state after each successful upload
-                    try:
+                # Las llamadas de red ocurren fuera de self._lock para no bloquear
+                # lectura/escritura local si Firebase está lento o caído.
+                if not self._upload_event(ev):
+                    break
+
+                uploaded += 1
+                try:
+                    with self._lock:
                         self._write_state(ev_dt.isoformat())
-                    except Exception:
-                        self.logger.exception("Failed to write state after upload")
+                except Exception:
+                    self.logger.exception("Failed to write state after upload")
 
             return uploaded
+        finally:
+            self._sync_gate.release()
+
+
+def _iter_jsonl(lines: Iterable[str], path: Path, log: logging.Logger) -> Iterable[Dict[str, Any]]:
+    """Iterates JSONL objects, skipping malformed lines instead of failing sync."""
+    for line_no, line in enumerate(lines, start=1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            log.warning("Invalid JSONL line skipped in %s:%d", path, line_no)
+            continue
+        if isinstance(item, dict):
+            yield item

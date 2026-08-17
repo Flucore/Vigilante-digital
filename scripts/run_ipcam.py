@@ -63,12 +63,14 @@ def main(source: Optional[str] = None) -> None:
             except Exception:
                 frame_show = proc_frame
 
-            cv2.imshow("Vigilante IA - IP Cam", frame_show)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                LOG.info("User requested exit")
-                break
+            if not config.HEADLESS_MODE:
+                cv2.imshow("Vigilante IA - IP Cam", frame_show)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    LOG.info("User requested exit")
+                    break
 
-    cv2.destroyAllWindows()
+    if not config.HEADLESS_MODE:
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

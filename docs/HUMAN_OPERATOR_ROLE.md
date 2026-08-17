@@ -1,85 +1,78 @@
-# Funciones del Humano en la Maqueta
+# Rol del humano — supervisor de aprendizaje
 
-## Rol General
+| Campo | Valor |
+|---|---|
+| Estado | Vigente (elevado Unidad 3 · 2026-08-16) |
+| Canónico | [REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md](REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md) · [04_VISION_COMERCIAL…](REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md) |
 
-El humano no compite con la IA. El humano enseña, valida y decide. El sistema funciona como un vigilante digital que mira 24/7, pero la autoridad final en una maqueta y en pilotos reales debe ser humana.
+## Rol general
 
-## Funciones Antes de la Demo
+El humano **no compite** con la IA.  
+El humano **calibra (M0), audita (curiosidad/alertas), enseña (M2), confirma conducta (M3) y autoriza promote**.  
+La IA es hipótesis versionada; el humano es fuente de verdad.
 
-### Preparar entorno
+## Mapa de responsabilidades
 
-- Verificar iluminación.
-- Verificar que las cámaras apunten a la zona correcta.
-- Revisar que los celulares/cámaras estén en la misma red que el PC.
-- Confirmar que las URLs de `demo_config.json` estén actualizadas.
-- Probar el demo al menos 30 minutos antes.
+| Función | Memoria / loop | Quién típico |
+|---|---|---|
+| Calibrar zonas (piscina, muro, gallinero) | M0 | Instalador / operador |
+| Revisar alertas y FAR percibido | Alertas | Operador seguridad / cliente |
+| Auditar cola de curiosidad | HITL | Revisor HITL |
+| Marcar FN (“debió alertar”) | Curiosidad | Operador |
+| Subir álbum de producto + validar máscaras | M2 | Cliente admin + revisor |
+| Distinguir “falla de cámara” vs “falla de modelo” | M0 vs train | Revisor |
+| Autorizar promote / rollback | ModelCard | Fundador FluCore (piloto) / rol contractual |
+| Cumplimiento (cartelería, consentimiento) | Legal | Cliente + FluCore en contrato |
 
-### Calibrar regiones
+`reviewer_id` debe quedar en cada decisión HITL (cadena de custodia).
 
-- Para semáforo/luz: ajustar `roi`.
-- Para polera roja: ajustar `roi` y `min_area_ratio`.
-- Para perímetro: ajustar `perimeter_line`.
-- Para caída: revisar distancia cámara-persona.
+## Antes del demo / piloto
 
-## Funciones Durante la Demo
+- Iluminación, ángulo, red, URLs de config.  
+- Calibrar ROI / `perimeter_line` / (futuro) máscaras M0.  
+- Probar ≥ 30 min antes de mostrar a cliente.  
+- Confirmar que Firebase no es requisito del relato.
+
+## Durante el demo
 
 ### Operador técnico
 
-- Arrancar `start_demo.bat`.
-- Confirmar que la vista split esté estable.
-- Presionar `f` para pantalla completa.
-- Presionar `p` para generar PDF al detectar evento.
-- Presionar `s` para screenshot manual.
-- Presionar `r` si se requiere limpiar alertas visuales.
+- Arrancar runner/demo; vista estable; teclas `p` PDF, `s` screenshot, etc. según script vigente.
 
 ### Actor de prueba
 
-- Simular caída de forma segura sobre colchoneta o superficie blanda.
-- Entrar al cuadro con polera roja y permanecer 1 segundo.
-- Cambiar color de luz/semaforo de forma visible dentro de la ROI.
+- Caída segura; cruce de perímetro controlado; no improvisar “niño en piscina” con menores reales en grabación sensible sin protocolo.
 
 ### Narrador comercial
 
-Debe explicar que:
+Debe decir:
 
-- La IA no reemplaza al guardia: lo multiplica.
-- El sistema detecta eventos, no solo graba video.
-- Cada evento genera evidencia y puede activar protocolos.
-- La empresa de seguridad puede aportar entornos reales para documentar casos.
+- No reemplazamos al guardia: lo multiplicamos con criterio de **este** sitio.  
+- Detectamos eventos y dejamos evidencia; no solo grabamos.  
+- Aprendemos con supervisión humana — no “solo”.  
+- M0 (borde irregular) es ventaja frente a línea recta de cámara con IA.
 
-## Funciones Después de la Demo
+## Después: validación y aprendizaje
 
-### Validación humana
+1. Revisar snapshots/PDF.  
+2. Clasificar: acierto / FP / FN / problema de cámara / zona mal calibrada.  
+3. FP de cámara → recalibrar M0, **no** meter a train.  
+4. FN → CuriositySample de máximo valor.  
+5. Etiquetar con `scripts/add_dataset_image.py` (flujo actual) hasta existir dashboard HITL.  
+6. Nunca pedir “suban 300 fotos y que se actualice solo el edge”.
 
-- Revisar snapshots.
-- Revisar PDFs.
-- Marcar detecciones correctas e incorrectas.
-- Guardar ejemplos útiles para dataset.
+## Decisión de mejora (árbol)
 
-### Etiquetado de aprendizaje
+Para cada error:
 
-Usar las imágenes guardadas para construir dataset:
+1. ¿Cámara / iluminación / ángulo? → hardware u operación.  
+2. ¿Zona/ROI mal calibrada? → M0.  
+3. ¿Regla temporal / IoU? → M3 config.  
+4. ¿Clase gruesa falló? → revisar M1 (raro).  
+5. ¿Subclase del cliente? → M2 + domain mix.  
+6. ¿Solo entonces train? → hub + gold-set + shadow/canary.
 
-- `fall`
-- `normal`
-- `red_shirt`
-- `not_red_shirt`
-- `traffic_red`
-- `traffic_yellow`
-- `traffic_green`
-- `perimeter_breach`
+## Principio de trabajo
 
-### Decisión de mejora
-
-Para cada error observado:
-
-1. ¿Fue problema de cámara?
-2. ¿Fue problema de iluminación?
-3. ¿Fue problema de ROI/configuración?
-4. ¿Requiere modelo entrenado?
-5. ¿Debe agregarse regla temporal?
-
-## Principio de Trabajo
-
-El humano es el supervisor de aprendizaje. La maqueta debe generar evidencia suficiente para que el sistema aprenda de instalaciones reales sin exponer datos innecesarios ni romper cumplimiento legal.
-
+El humano es el **supervisor de aprendizaje**.  
+La maqueta y el piloto deben generar evidencia suficiente para mejorar el sitio **sin** exponer datos innecesarios ni romper Ley 21.663 / políticas FluCore.

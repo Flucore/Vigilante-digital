@@ -1,0 +1,43 @@
+# ── Vigilante Digital v2.0 — Runner Container (GPU) ──────────────────────
+# Base con CUDA para inferencia en GPU NVIDIA
+FROM nvcr.io/nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
+
+WORKDIR /app
+
+# Python 3.12
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 python3.12-dev python3-pip \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf python3.12 /usr/bin/python \
+    && ln -sf pip3 /usr/bin/pip
+
+# Dependencias Python (PyTorch con CUDA)
+RUN pip install --no-cache-dir \
+    torch torchvision --index-url https://download.pytorch.org/whl/cu121 \
+    && pip install --no-cache-dir \
+    ultralytics \
+    opencv-python-headless \
+    numpy \
+    psycopg2-binary \
+    requests \
+    onvif-zeep \
+    mediapipe \
+    python-dotenv \
+    paho-mqtt \
+    reportlab
+
+# Copiar código fuente
+COPY . .
+
+# Usuario no root
+RUN useradd -m -u 1001 vigilante && chown -R vigilante:vigilante /app
+USER vigilante
+
+# Descargar modelo YOLOv8 base (se cachea en la imagen)
+RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')" 2>/dev/null || true
+RUN python -c "from ultralytics import YOLO; YOLO('yolov8n-pose.pt')" 2>/dev/null || true
+RUN python -c "from ultralytics import YOLO; YOLO('yolov8n-seg.pt')" 2>/dev/null || true
+
+CMD ["python", "runner.py", "--mode", "realtime"]

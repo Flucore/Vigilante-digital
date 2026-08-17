@@ -5,10 +5,10 @@ import tempfile
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 class JSONLogger:
-    """Registra eventos en un archivo JSON histórico.
+    """Registra eventos en un archivo JSONL histórico.
 
     Cada entrada es un dict con al menos:
       - timestamp (ISO 8601 UTC)
@@ -18,8 +18,8 @@ class JSONLogger:
 
     Diseño:
       - No importa módulos de `core/` ni `inputs/`.
-      - Usa escritura atómica (temp + os.replace).
-      - Realiza backup del archivo si el JSON es inválido.
+      - Agrega eventos con append-only JSONL para evitar reescrituras O(N).
+      - Lee archivos JSON array legacy para compatibilidad.
       - Protege acceso concurrente dentro del mismo proceso con threading.Lock.
     """
 
@@ -27,11 +27,11 @@ class JSONLogger:
         """Inicializa el logger.
 
         Args:
-            file_path: ruta al archivo JSON. Si es None, intenta leer de la env VAR `JSON_LOG_PATH`
-                       y si no existe, usa `./events_history.json`.
+            file_path: ruta al archivo JSONL. Si es None, intenta leer de la env VAR `JSON_LOG_PATH`
+                       y si no existe, usa `./events_history.jsonl`.
         """
         env_path = os.getenv("JSON_LOG_PATH")
-        self.path: Path = Path(file_path or env_path or "events_history.json")
+        self.path: Path = Path(file_path or env_path or "events_history.jsonl")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
 
@@ -42,7 +42,7 @@ class JSONLogger:
         event_type: str = "",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        """Añade una entrada al historial JSON.
+        """Añade una entrada al historial JSONL.
 
         Args:
             timestamp: ISO string o datetime. Si None, se usa UTC ahora.
@@ -68,9 +68,7 @@ class JSONLogger:
 
         try:
             with self._lock:
-                history = self._read_history()
-                history.append(entry)
-                self._write_history(history)
+                self._append_entry(entry)
             return True
         except Exception:
             # No levantar para no romper el orquestador; caller puede optar por reintentar
@@ -90,20 +88,21 @@ class JSONLogger:
         return str(timestamp)
 
     def _read_history(self) -> List[Dict[str, Any]]:
-        """Lee y parsea el archivo JSON. Si falta, devuelve lista vacía.
-        Si el JSON está corrupto, crea un backup y devuelve lista vacía.
-        """
+        """Lee JSONL y, por compatibilidad, arrays JSON legacy."""
         if not self.path.exists():
             return []
 
         try:
             with self.path.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, list):
-                return data
-            # Si no es lista, tratamos como corrupto/reseteable
-            self._backup_corrupt_file("not-a-list")
-            return []
+                first = fh.read(1)
+                fh.seek(0)
+                if first == "[":
+                    data = json.load(fh)
+                    if isinstance(data, list):
+                        return data
+                    self._backup_corrupt_file("not-a-list")
+                    return []
+                return list(_iter_jsonl(fh, self.path))
         except json.JSONDecodeError:
             self._backup_corrupt_file("json-decode-error")
             return []
@@ -111,15 +110,24 @@ class JSONLogger:
             # En cualquier otro fallo devolvemos vacio (no propagar)
             return []
 
+    def _append_entry(self, entry: Dict[str, Any]) -> None:
+        """Agrega una línea JSONL sin leer ni reescribir el historial."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+
     def _write_history(self, history: List[Dict[str, Any]]) -> None:
-        """Escribe el archivo de forma atómica usando un temp y os.replace."""
+        """Escribe un historial completo como JSONL usando temp y os.replace."""
         dirpath = self.path.parent
         dirpath.mkdir(parents=True, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(dir=dirpath, prefix=self.path.name + ".", suffix=".tmp")
         os.close(fd)
         try:
             with open(tmp_path, "w", encoding="utf-8") as fh:
-                json.dump(history, fh, ensure_ascii=False, indent=2)
+                for entry in history:
+                    fh.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
                 fh.flush()
                 os.fsync(fh.fileno())
             os.replace(tmp_path, self.path)  # atomic replace
@@ -141,3 +149,18 @@ class JSONLogger:
         except Exception:
             # No propagar; si no se puede respaldar, el método superior seguirá con lista vacía
             pass
+
+
+def _iter_jsonl(lines: Iterable[str], path: Path) -> Iterable[Dict[str, Any]]:
+    """Itera objetos JSONL, ignorando líneas vacías y corruptas."""
+    for line_no, line in enumerate(lines, start=1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            # Un registro corrupto no debe tumbar el proceso 24/7.
+            continue
+        if isinstance(item, dict):
+            yield item

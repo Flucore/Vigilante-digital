@@ -1,138 +1,94 @@
-# Visión de Demo y Escalamiento del Producto
+# Visión de producto y escala
+
+| Campo | Valor |
+|---|---|
+| Estado | Vigente (elevado Unidad 3 · 2026-08-16) |
+| Charter | [REFORMULACION/01_CHARTER.md](REFORMULACION/01_CHARTER.md) |
+| Arquitectura | [REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md](REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md) |
+| Comercial | [REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md](REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md) |
 
 ## Visión
 
-Vigilante Digital es una plataforma modular de vigilancia inteligente. Su filosofía es simple: un guardia digital analiza cada cuadro o grupo de cuadros, todo el día, sin cansancio, y convierte video pasivo en eventos accionables.
+Vigilante Digital (FluCore) es una plataforma modular de vigilancia inteligente: un vigilante digital analiza el video 24/7, convierte lo pasivo en **eventos accionables y auditables**, y acumula **criterio de sitio** con supervisión humana.
 
-No es solo CCTV. Es percepción operacional.
+> Una cámara con IA ve clases universales. Vigilante Digital acumula criterio de este sitio.
 
-## Demo Actual
+No es solo CCTV. Es percepción operacional + memoria de sitio.
 
-La maqueta debe demostrar tres ideas:
+## Dual-Track
 
-1. El sistema entiende eventos visuales.
-2. El sistema actúa: alerta, documenta y dispara protocolos.
-3. El sistema es modular: cada nuevo caso de uso es un módulo.
+| Track | Foco |
+|---|---|
+| **Comercial** | Edge: Care, Perimeter, Aqua (M0), triggers estables |
+| **Académico** | MLOps HITL, promote, servicios lógicos, tesis medible |
 
-## Módulos de Demo
+## Demo / piloto: tres ideas
 
-### Caída
+1. El sistema entiende **eventos** (no solo graba).  
+2. El sistema **actúa** (log, PDF, email, bocina/webhook).  
+3. El sistema es **modular** y puede **calibrarse al sitio** (M0), no solo detectar COCO.
 
-Detecta postura compatible con caída usando pose humana y validación temporal.
+### Módulos de entrada (mensaje)
 
-Valor comercial:
+| Módulo | Valor | Estado honesto |
+|---|---|---|
+| Care & Fall | Caídas / ISO 45001 / evidencia | Más maduro |
+| Perimeter Guard | Intrusión horario no hábil | Línea hoy; muro irregular = M0+M3 |
+| Aqua & Risk | Piscina / riesgo hídrico | Rojo hasta M0 usable |
+| Demo color/luz | Explicabilidad comercial | HSV; no el diferenciador |
 
-- residencias,
-- faenas industriales,
-- bodegas,
-- minería,
-- instituciones con adultos mayores.
+## Escalamiento (etapas reformuladas)
 
-### Polera Roja por 1 Segundo
+### Etapa 1 — Demo local (hoy)
 
-Detecta presencia persistente de color específico.
+- 1–2 cámaras / archivo.  
+- `runner.py` + YOLO/MediaPipe.  
+- JSONL / PDF / triggers opcionales.
 
-Valor comercial:
+### Etapa 2 — Piloto edge (Track Comercial)
 
-- control de uniforme/EPP,
-- seguimiento de cuadrillas,
-- pruebas de segmentación por atributos,
-- demostración simple y muy visual.
+- 2–8 cámaras.  
+- Care + Perimeter estabilizados.  
+- **Aprendizaje-A:** M0 zonas/máscara + IoU.  
+- HITL mínimo (manifiesto / scripts).  
+- Sin auto-deploy de pesos.
 
-### Cambio de Luz/Semáforo
+### Etapa 3 — Producto operacional
 
-Detecta cambios de color en una región fija.
+- Indexación forense + API.  
+- Notificaciones confiables.  
+- Cumplimiento explícito (retención, cartelería, threat model).  
+- Desacople gradual a servicios lógicos (bus de eventos cuando el contrato de datos exista).
 
-Valor comercial:
+### Etapa 4 — Plataforma de las cuatro memorias (reemplaza “lista de detectores”)
 
-- lectura de tableros,
-- semáforos industriales,
-- balizas,
-- estados de máquinas,
-- señales visuales en plantas.
+La etapa inteligente **no** es “añadir armas + térmico + EPP a la lista”.  
+Es la plataforma:
 
-### Perímetro
+- M0 geometría · M1 percepción · M2 taxonomía · M3 conducta  
+- Motor de Curiosidad · Dashboard HITL · Gold-set · Shadow/Canary/Promote  
 
-Detecta cruces de línea virtual.
+Detectores verticales (térmico, armas, EPP) se agregan **sobre** esa plataforma, no en su lugar.
 
-Valor comercial:
-
-- zonas restringidas,
-- bodegas,
-- parcelas,
-- faenas,
-- subestaciones eléctricas.
-
-## Escalamiento del Producto
-
-### Etapa 1 — Demo Local
-
-- 2 cámaras IP/webcam.
-- OpenCV + YOLO/MediaPipe.
-- JSON local.
-- PDF manual.
-- Triggers opcionales.
-
-### Etapa 2 — Piloto Real
-
-- 4-8 cámaras IP.
-- Guardado local con rotación.
-- Dashboard web.
-- WhatsApp/email/bocina por microservicio.
-- Dataset real con revisión humana.
-
-### Etapa 3 — Producto Operacional
-
-- Microservicio por cámara o por zona.
-- Bus de eventos.
-- Inferencia GPU centralizada.
-- Integración VMS/CCTV existente.
-- Segmentación avanzada.
-- Reportería ejecutiva.
-- Cumplimiento Ley 21.663, ISO 27001 e IEC 62676.
-
-### Etapa 4 — Producto Inteligente
-
-- Aprendizaje continuo supervisado.
-- Entrenamiento por cliente y por vertical.
-- Detección térmica.
-- Detección de armas.
-- Detección de EPP.
-- Detección de robo o manipulación.
-- Modelos por zona crítica.
-
-## Arquitectura Escalable Propuesta
+## Arquitectura escalable (lógica)
 
 ```text
-Cámaras IP/RTSP
-    ↓
-camera-agent
-    ↓
-vision-inference-service
-    ↓
-event-bus
-    ↓
-event-store + report-service + notification-service + dashboard
-    ↓
-human-review + dataset-service + training-pipeline
+Cámaras
+  → camera-ingest
+  → vision-inference (M1) + zones (M0) + recipes (M3)
+  → event-bus (cuando corresponda)
+  → event-store · notify · forensic · dashboard
+  → HITL · dataset · training-pipeline (hub)
 ```
 
-## Producto para Empresa de Seguridad
+No exigir 4 microservicios en el primer sprint comercial.
 
-La empresa de seguridad no solo compra una IA. Puede transformarse en socio operativo:
+## Socio: empresa de seguridad
 
-- aporta instalaciones reales,
-- define casos de uso,
-- valida eventos con guardias,
-- entrega datos para entrenar,
-- abre acceso a clientes industriales.
+- Aporta instalaciones y validación de guardias (HITL).  
+- No “entrega datos para que el modelo aprenda solo”.  
+- Piloto 90 días: instalar → medir FAR/recall → calibrar M0 → dataset auditado → (si aplica) M2 con promote disciplinado.
 
-La propuesta correcta es un piloto conjunto de 90 días:
+## Anti-promesas
 
-1. Instalar en entorno real.
-2. Documentar casos.
-3. Medir precisión.
-4. Crear dataset.
-5. Entrenar modelo vertical.
-6. Presentar primer producto comercial.
-
+- Aprende solo · Auto-deploy tras N fotos · Guerrilla en seguridad crítica · FAR cero garantizado.

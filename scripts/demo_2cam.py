@@ -46,6 +46,7 @@ from outputs.event_logger import EventLogger
 from outputs.hud_renderer import compose_split_view, draw_hud, draw_no_signal
 from outputs.report_generator import ReportGenerator
 from outputs.trigger_manager import TriggerManager
+import config as app_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -355,6 +356,7 @@ def run_demo(config: Dict[str, Any], cam_overrides: Dict[str, str]) -> None:
     demo_cfg = config.get("demo", {})
     det_cfg = config.get("detection", {})
     fb_cfg = config.get("firebase", {})
+    headless = app_config.HEADLESS_MODE
 
     win_w = demo_cfg.get("window_width", 1920)
     win_h = demo_cfg.get("window_height", 540)
@@ -414,17 +416,21 @@ def run_demo(config: Dict[str, Any], cam_overrides: Dict[str, str]) -> None:
         wk.start()
 
     # ── Ventana principal ─────────────────────────────────────────────────────
-    cv2.namedWindow(title, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(title, win_w, win_h)
+    if not headless:
+        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(title, win_w, win_h)
 
     paused = False
     fullscreen = False
     last_event: Optional[Dict] = None
 
-    LOG.info("Demo activo — Teclas: q=salir | p=PDF | s=screenshot | r=reset | f=fullscreen | ESPACIO=pausa")
+    LOG.info("Demo activo%s", " en modo HEADLESS" if headless else " — Teclas: q=salir | p=PDF | s=screenshot | r=reset | f=fullscreen | ESPACIO=pausa")
     print("\n" + "="*60)
     print(f"  {title}")
-    print("  Teclas: q=salir | p=PDF | s=screenshot | r=reset | f=fullscreen | ESPACIO=pausa")
+    if headless:
+        print("  Modo HEADLESS: sin ventana OpenCV ni controles por teclado")
+    else:
+        print("  Teclas: q=salir | p=PDF | s=screenshot | r=reset | f=fullscreen | ESPACIO=pausa")
     print("="*60 + "\n")
 
     while True:
@@ -449,7 +455,7 @@ def run_demo(config: Dict[str, Any], cam_overrides: Dict[str, str]) -> None:
                 break
 
         # ── Componer vista ────────────────────────────────────────────────────
-        if not paused:
+        if not headless and not paused:
             frames = [st.get_frame() for st in states]
             valid = [f for f in frames if f is not None]
 
@@ -463,7 +469,11 @@ def run_demo(config: Dict[str, Any], cam_overrides: Dict[str, str]) -> None:
             cv2.imshow(title, canvas)
 
         # ── Teclas ────────────────────────────────────────────────────────────
-        key = cv2.waitKey(30) & 0xFF
+        if headless:
+            time.sleep(0.03)
+            key = -1
+        else:
+            key = cv2.waitKey(30) & 0xFF
 
         if key in (ord("q"), 27):  # q o ESC
             LOG.info("Saliendo por tecla")
@@ -496,7 +506,9 @@ def run_demo(config: Dict[str, Any], cam_overrides: Dict[str, str]) -> None:
     for wk in workers:
         wk.join(timeout=4)
 
-    cv2.destroyAllWindows()
+    trigger_manager.shutdown(wait=False)
+    if not headless:
+        cv2.destroyAllWindows()
 
     total_events = sum(s.events_count for s in states)
     LOG.info("Demo finalizado — Total eventos detectados: %d", total_events)

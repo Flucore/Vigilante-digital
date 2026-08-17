@@ -1,3 +1,5 @@
+> **HISTÓRICO / prematuro.** No ejecutar tal cual. Prompts vigentes: `DESARROLLO_EJECUTABLE.md`. Microservicios solo en Track Académico (A6) tras contrato de datos (A2).
+
 # Prompts para Avanzar por Microservicios
 
 Usar estos prompts paso a paso para evolucionar Vigilante Digital desde maqueta local a plataforma escalable.

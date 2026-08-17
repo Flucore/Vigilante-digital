@@ -9,9 +9,11 @@ detenga si una integración externa no está configurada.
 """
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
@@ -30,18 +32,42 @@ class TriggerManager:
         self.config = config or {}
         self.enabled = bool(self.config.get("enabled", False))
         self._email_sender = EmailSender()
+        max_workers = int(self.config.get("max_workers", 5))
+        max_pending = int(self.config.get("max_pending", max_workers * 4))
+        self._pending = threading.BoundedSemaphore(max(1, max_pending))
+        self._executor = ThreadPoolExecutor(
+            max_workers=max(1, max_workers),
+            thread_name_prefix="vigilante-trigger",
+        )
+        atexit.register(self.shutdown, wait=False)
 
     def handle_event(self, event: Dict[str, Any], pdf_path: Optional[str] = None) -> None:
         """Ejecuta triggers para un evento sin bloquear el loop principal."""
         if not self.enabled:
             return
 
-        threading.Thread(
-            target=self._handle_event_safe,
-            args=(dict(event), pdf_path),
-            daemon=True,
-            name=f"trigger-{event.get('event_type', 'event')}",
-        ).start()
+        if not self._pending.acquire(blocking=False):
+            LOG.warning("Cola de triggers llena; evento omitido: %s", event.get("event_type", "event"))
+            return
+
+        try:
+            future = self._executor.submit(self._handle_event_safe, dict(event), pdf_path)
+        except RuntimeError:
+            self._pending.release()
+            LOG.warning("Pool de triggers cerrado; evento omitido: %s", event.get("event_type", "event"))
+            return
+        future.add_done_callback(self._on_trigger_done)
+
+    def _on_trigger_done(self, future: Future) -> None:
+        self._pending.release()
+        try:
+            future.result()
+        except Exception:
+            LOG.exception("Error inesperado en worker de triggers")
+
+    def shutdown(self, wait: bool = True) -> None:
+        """Cierra el pool de triggers durante el apagado ordenado."""
+        self._executor.shutdown(wait=wait, cancel_futures=not wait)
 
     def _handle_event_safe(self, event: Dict[str, Any], pdf_path: Optional[str]) -> None:
         try:

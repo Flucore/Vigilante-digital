@@ -46,8 +46,8 @@ class VideoTestHarness:
         self.output_dir.mkdir(exist_ok=True, parents=True)
 
         # Configuración para pruebas (overrides)
-        self.json_log_path = self.output_dir / "events_history.json"
-        self.event_log_path = self.output_dir / "events_log.json"
+        self.json_log_path = self.output_dir / "events_history.jsonl"
+        self.event_log_path = self.output_dir / "events_log.jsonl"
         self.metrics_path = self.output_dir / "test_metrics.json"
 
         # Métricas
@@ -192,14 +192,15 @@ class VideoTestHarness:
 
                 cv2.putText(proc_frame, f'FPS: {int(fps)}', (20, 70), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 3)
 
-                # Mostrar (sin redimensionar innecesariamente)
-                try:
-                    frame_show = proc_frame
-                    cv2.imshow("Test: Vigilante IA", frame_show)
-                except Exception:
-                    cv2.imshow("Test: Vigilante IA", cv2.resize(proc_frame, (1280, 720)))
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                if not config.HEADLESS_MODE:
+                    # Mostrar (sin redimensionar innecesariamente)
+                    try:
+                        frame_show = proc_frame
+                        cv2.imshow("Test: Vigilante IA", frame_show)
+                    except Exception:
+                        cv2.imshow("Test: Vigilante IA", cv2.resize(proc_frame, (1280, 720)))
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
 
 
                 # Cada 100 frames, imprimir progreso
@@ -207,7 +208,8 @@ class VideoTestHarness:
                     LOG.info(f"Procesados {frame_idx}/{total_frames} frames ({100*frame_idx/total_frames:.1f}%)")
 
             cap.release()
-            cv2.destroyAllWindows()
+            if not config.HEADLESS_MODE:
+                cv2.destroyAllWindows()
 
             # 4. Finalizar y sincronizar Firebase
             if config.USE_EVENT_LOGGER and event_logger:

@@ -86,6 +86,8 @@
   ],
   "triggers": {
     "enabled": false,
+    "max_workers": 5,
+    "max_pending": 20,
     "default_routes": ["speaker"],
     "routes_by_event": {
       "fall": ["speaker", "whatsapp", "email"],

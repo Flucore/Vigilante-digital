@@ -15,7 +15,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-import time
+from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -32,15 +32,14 @@ def main(output_dir: str, no_firebase: bool):
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    event_log_path = out / "events_log.json"
-    history_path = out / "events_history.json"
+    event_log_path = out / "events_log.jsonl"
 
-    logger = EventLogger(history_path)
+    logger = EventLogger(event_log_path)
 
     # Evento de prueba: simulated fall
     event = {
         "event_type": "fall",
-        "start_time": time.time(),
+        "start_time": datetime.now(timezone.utc).isoformat(),
         "duration_seconds": 2.5,
         "frames": [100, 101, 102],
         "metadata": {"simulated": True, "note": "test_event_storage"}

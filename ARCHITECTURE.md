@@ -1,3 +1,5 @@
+> **HISTÓRICO / parcial.** Reglas de capas vigentes están en `CODE_INDEX.md` y `.cursor/rules/`. Arquitectura de producto: `docs/REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md`.
+
 # Manifiesto de Arquitectura: Vigilante Digital IA
 
 Este documento establece las reglas inviolables de diseño y desarrollo para el proyecto. Su objetivo es garantizar la modularidad, la mantenibilidad y preparar el sistema para una futura escalabilidad mediante contenedores (Docker).

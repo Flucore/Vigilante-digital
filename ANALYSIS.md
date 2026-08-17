@@ -1,3 +1,5 @@
+> **HISTÓRICO.** No es fuente de verdad. Usar `MASTER_DEVELOPMENT_PLAN.md`, `DESARROLLO_EJECUTABLE.md` y `docs/REFORMULACION/`.
+
 # ANÁLISIS TÉCNICO DEL PROYECTO: Vigilante Digital IA
 
 **Fecha:** 8 de Diciembre de 2025  

@@ -5,6 +5,7 @@ Dibuja overlays informativos sobre los frames de cada cámara:
 - Indicador de alerta con fondo rojo cuando hay evento activo
 - Contador de eventos detectados en la sesión
 - Información del motor de IA activo
+- Overlay de HARDWARE TRIGGER para demo sin hardware físico
 
 Diseño: sobrio, legible en proyector, sin decoraciones innecesarias.
 """
@@ -12,7 +13,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -121,6 +122,127 @@ def draw_no_signal(frame_size: Tuple[int, int], cam_name: str) -> np.ndarray:
         cv2.putText(frame, msg, (x, y),
                     cv2.FONT_HERSHEY_SIMPLEX, scale, _C_TEXT_AMBER, 2, cv2.LINE_AA)
     return frame
+
+
+def draw_hardware_trigger_overlay(
+    frame: np.ndarray,
+    trigger_data: Dict[str, Any],
+    display_seconds: float = 3.0,
+    activated_at: Optional[float] = None,
+) -> Tuple[np.ndarray, bool]:
+    """Dibuja el overlay de HARDWARE TRIGGER para demo sin hardware físico.
+
+    El overlay aparece en la esquina superior derecha del frame durante
+    ``display_seconds`` segundos desde ``activated_at``. No requiere hardware
+    real: se activa cuando TriggerManager dispararía la bocina (Nivel 3).
+
+    Args:
+        frame: Frame BGR a anotar (modificado in-place y retornado).
+        trigger_data: Dict con información del trigger:
+            - trigger_type (str): "SIRENA" | "RELAY" | "MQTT"
+            - mqtt_topic (str): topic MQTT o identificador del hardware
+            - timestamp (str): ISO 8601 del evento
+            - camera_id (str): ID de la cámara que disparó
+        display_seconds: Duración del overlay en segundos.
+        activated_at: time.time() del momento de activación.
+                      Si None, se usa el momento actual (primer frame).
+
+    Returns:
+        (frame_anotado, still_active): frame con overlay; bool que indica
+        si el overlay sigue activo (para controlar en el loop principal).
+
+    Ejemplo::
+
+        # En el loop de la cámara, al detectar trigger Nivel 3:
+        trigger_ts = time.time()
+        trigger_data = {
+            "trigger_type": "SIRENA",
+            "mqtt_topic": "vigilante/relay/horn",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "camera_id": "CAM_PATIO_1",
+        }
+
+        # En cada frame siguiente:
+        frame, active = draw_hardware_trigger_overlay(
+            frame, trigger_data, activated_at=trigger_ts
+        )
+        if not active:
+            trigger_ts = None  # apagar overlay
+    """
+    now = time.time()
+    t0 = activated_at if activated_at is not None else now
+    elapsed = now - t0
+
+    if elapsed > display_seconds:
+        return frame, False
+
+    h, w = frame.shape[:2]
+
+    # Dimensiones del panel
+    panel_w = min(380, w - 20)
+    panel_h = 100
+    margin = 12
+    x1 = w - panel_w - margin
+    y1 = margin
+    x2 = w - margin
+    y2 = y1 + panel_h
+
+    # Fondo rojo semitransparente
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 180), -1)
+    alpha = 0.82
+    cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+    # Borde rojo sólido
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 230), 2)
+
+    # Textos
+    t_type    = str(trigger_data.get("trigger_type", "SIRENA"))
+    t_topic   = str(trigger_data.get("mqtt_topic",   "vigilante/relay/horn"))
+    t_ts      = str(trigger_data.get("timestamp",    ""))[:19]  # solo hasta segundos
+    t_cam     = str(trigger_data.get("camera_id",    ""))
+
+    # Línea 1: título
+    cv2.putText(
+        frame, "HARDWARE TRIGGER ACTIVADO",
+        (x1 + 8, y1 + 22),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 1, cv2.LINE_AA,
+    )
+
+    # Línea 2: tipo y cámara
+    cv2.putText(
+        frame, f"{t_type}  |  {t_cam}",
+        (x1 + 8, y1 + 44),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.44, (255, 210, 210), 1, cv2.LINE_AA,
+    )
+
+    # Línea 3: topic MQTT
+    topic_txt = t_topic if len(t_topic) <= 38 else t_topic[:35] + "..."
+    cv2.putText(
+        frame, f"Topic: {topic_txt}",
+        (x1 + 8, y1 + 63),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.40, (255, 200, 200), 1, cv2.LINE_AA,
+    )
+
+    # Línea 4: timestamp
+    cv2.putText(
+        frame, t_ts,
+        (x1 + 8, y1 + 82),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.40, (220, 220, 220), 1, cv2.LINE_AA,
+    )
+
+    # Barra de tiempo restante (fade visual)
+    remaining_ratio = max(0.0, 1.0 - elapsed / display_seconds)
+    bar_w = int((panel_w - 16) * remaining_ratio)
+    if bar_w > 0:
+        cv2.rectangle(
+            frame,
+            (x1 + 8, y2 - 7),
+            (x1 + 8 + bar_w, y2 - 3),
+            (255, 100, 100), -1,
+        )
+
+    return frame, True
 
 
 def compose_split_view(

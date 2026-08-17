@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vigilante Digital — Panel de Operador</title>
+<style>
+  :root {
+    --bg:       #0d0f14;
+    --surface:  #161b22;
+    --border:   #21262d;
+    --accent:   #00c8ff;
+    --danger:   #ff4d4d;
+    --warning:  #ffb020;
+    --ok:       #3ddc84;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --font:     'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Header ── */
+  header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo svg { color: var(--accent); }
+  .logo-title { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
+  .logo-sub { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .node-badge { background: #1f2937; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: .75rem; color: var(--muted); }
+  .clock { font-size: .85rem; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 80px; text-align: right; }
+
+  /* ── Layout principal ── */
+  .main { display: grid; grid-template-columns: 1fr 320px; height: calc(100vh - 57px); overflow: hidden; }
+
+  /* ── Grid de cámaras ── */
+  .cameras-section { display: flex; flex-direction: column; padding: 12px; gap: 12px; overflow: hidden; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .section-title { font-size: .8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .camera-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; overflow-y: auto; flex: 1; }
+  .cam-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; }
+  .cam-card.alert { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+  .cam-feed { width: 100%; aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; position: relative; }
+  .cam-feed canvas { width: 100%; height: 100%; object-fit: cover; }
+  .cam-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+  .cam-status-dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .cam-status-dot.offline { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .cam-status-dot.warning { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+  .cam-info { padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
+  .cam-name { font-size: .8rem; font-weight: 600; }
+  .cam-meta { font-size: .72rem; color: var(--muted); }
+  .cam-fps { font-size: .75rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .no-signal { color: var(--muted); font-size: .75rem; }
+
+  /* ── Panel lateral ── */
+  .sidebar { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-header { padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .sidebar-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab-btn { flex: 1; padding: 9px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); font-size: .78rem; cursor: pointer; transition: all .15s; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Bitácora de alertas ── */
+  .alert-log { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .alert-item { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; font-size: .76rem; cursor: pointer; transition: border-color .15s; }
+  .alert-item:hover { border-color: var(--accent); }
+  .alert-item.level-3 { border-left: 3px solid var(--danger); }
+  .alert-item.level-2 { border-left: 3px solid var(--warning); }
+  .alert-item.level-1 { border-left: 3px solid var(--ok); }
+  .alert-item.acked { opacity: 0.5; }
+  .alert-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+  .alert-type { font-weight: 600; color: var(--text); }
+  .alert-time { color: var(--muted); font-size: .7rem; }
+  .alert-cam { color: var(--accent); font-size: .72rem; }
+  .alert-ack-btn { background: none; border: 1px solid var(--border); color: var(--muted); font-size: .68rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+  .alert-ack-btn:hover { border-color: var(--ok); color: var(--ok); }
+
+  /* ── Stats bar ── */
+  .stats-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .stat-item { flex: 1; text-align: center; padding: 8px 4px; border-right: 1px solid var(--border); }
+  .stat-item:last-child { border-right: none; }
+  .stat-value { font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+  .stat-value.danger { color: var(--danger); }
+  .stat-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 1px; }
+
+  /* ── Acciones ── */
+  .actions-panel { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .action-btn { width: 100%; padding: 9px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: .8rem; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background .15s; }
+  .action-btn:hover { background: #1f2937; border-color: var(--accent); }
+  .action-btn.danger { border-color: var(--danger); color: var(--danger); }
+
+  /* ── Token modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 380px; }
+  .modal h2 { font-size: 1rem; margin-bottom: 12px; color: var(--text); }
+  .modal input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: .85rem; margin-bottom: 12px; }
+  .modal button { width: 100%; padding: 9px; background: var(--accent); color: #000; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: .85rem; }
+  .hidden { display: none !important; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Token modal -->
+<div class="modal-overlay" id="tokenModal">
+  <div class="modal">
+    <h2>🔒 Autenticación requerida</h2>
+    <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;">Ingresa el token de acceso del nodo Vigilante Digital.</p>
+    <input type="password" id="tokenInput" placeholder="Bearer token..." autocomplete="off">
+    <button onclick="saveToken()">Ingresar</button>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+    <div>
+      <div class="logo-title">VIGILANTE DIGITAL</div>
+      <div class="logo-sub">Panel de Operador · v2.0</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="node-badge" id="nodeId">Nodo: —</span>
+    <span class="clock" id="clock">00:00:00</span>
+  </div>
+</header>
+
+<!-- Main -->
+<div class="main">
+  <!-- Cámaras -->
+  <div class="cameras-section">
+    <div class="section-header">
+      <span class="section-title">Feeds en Vivo</span>
+      <span class="cam-meta" id="camCount">0 cámaras activas</span>
+    </div>
+    <div class="camera-grid" id="cameraGrid">
+      <div style="color:var(--muted);font-size:.8rem;padding:20px;">Conectando con el sistema...</div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-value" id="statCams">0</div>
+        <div class="stat-label">Cámaras</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statEvents">0</div>
+        <div class="stat-label">Eventos 1h</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value danger" id="statAlerts">0</div>
+        <div class="stat-label">Alertas</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('events')" id="tabEvents">Bitácora</button>
+      <button class="tab-btn" onclick="switchTab('actions')" id="tabActions">Acciones</button>
+    </div>
+
+    <!-- Events tab -->
+    <div id="panelEvents" class="alert-log"></div>
+
+    <!-- Actions tab -->
+    <div id="panelActions" class="actions-panel hidden">
+      <button class="action-btn" onclick="refreshAll()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Actualizar todas las cámaras
+      </button>
+      <button class="action-btn" onclick="exportShift()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar turno actual
+      </button>
+      <button class="action-btn" onclick="window.open('/','_blank')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Abrir Auditoría Forense
+      </button>
+      <hr style="border-color:var(--border);">
+      <div style="font-size:.72rem;color:var(--muted);padding:4px 0;">SISTEMA</div>
+      <button class="action-btn" onclick="checkHealth()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Verificar salud del sistema
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ──
+const BASE    = window.location.origin;
+const OP_BASE = BASE + '/operator';
+let TOKEN     = sessionStorage.getItem('vd_token') || '';
+let wsMap     = {};     // camera_id → WebSocket
+let cameras   = {};     // camera_id → state
+let alertCount = 0;
+
+// ── Auth ──
+function saveToken() {
+  TOKEN = document.getElementById('tokenInput').value.trim();
+  sessionStorage.setItem('vd_token', TOKEN);
+  document.getElementById('tokenModal').classList.add('hidden');
+  init();
+}
+
+function headers() {
+  return TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
+}
+
+// ── Init ──
+async function init() {
+  try {
+    const r = await fetch(BASE + '/api/v1/health', { headers: headers() });
+    if (r.status === 401) { document.getElementById('tokenModal').classList.remove('hidden'); return; }
+    const data = await r.json();
+    document.getElementById('nodeId').textContent = 'Nodo: ' + (data.node_id || 'edge-01');
+  } catch(e) {}
+
+  refreshCameras();
+  refreshEvents();
+  setInterval(refreshCameras, 5000);
+  setInterval(refreshEvents,  3000);
+  setInterval(updateClock,    1000);
+}
+
+// ── Reloj ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('es-CL', { hour12: false });
+}
+
+// ── Cámaras ──
+async function refreshCameras() {
+  try {
+    const r = await fetch(OP_BASE + '/api/cameras/status', { headers: headers() });
+    if (!r.ok) return;
+    const data = await r.json();
+    renderCameras(data.cameras || []);
+    document.getElementById('statCams').textContent = data.total || 0;
+    document.getElementById('camCount').textContent = (data.total || 0) + ' cámaras activas';
+  } catch(e) {}
+}
+
+function renderCameras(list) {
+  const grid = document.getElementById('cameraGrid');
+  if (!list.length) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:20px;">Sin cámaras registradas. Inicia runner.py para comenzar.</div>';
+    return;
+  }
+  list.forEach(cam => {
+    let card = document.getElementById('cam-card-' + cam.id);
+    if (!card) {
+      card = createCameraCard(cam);
+      grid.appendChild(card);
+    }
+    updateCameraCard(card, cam);
+    if (!wsMap[cam.id]) connectWS(cam.id);
+  });
+}
+
+function createCameraCard(cam) {
+  const card = document.createElement('div');
+  card.className = 'cam-card';
+  card.id = 'cam-card-' + cam.id;
+  card.innerHTML = `
+    <div class="cam-feed">
+      <canvas id="canvas-${cam.id}"></canvas>
+      <div class="cam-overlay">
+        <div class="cam-status-dot" id="dot-${cam.id}"></div>
+      </div>
+    </div>
+    <div class="cam-info">
+      <div>
+        <div class="cam-name">${cam.id}</div>
+        <div class="cam-meta">${cam.status || 'online'}</div>
+      </div>
+      <div class="cam-fps" id="fps-${cam.id}">-- FPS</div>
+    </div>`;
+  return card;
+}
+
+function updateCameraCard(card, cam) {
+  const dot = document.getElementById('dot-' + cam.id);
+  const fps = document.getElementById('fps-' + cam.id);
+  if (dot) dot.className = 'cam-status-dot' + (cam.status === 'offline' ? ' offline' : cam.alerts > 0 ? ' warning' : '');
+  if (fps) fps.textContent = (cam.fps || 0) + ' FPS';
+  if (cam.alerts > 0) card.classList.add('alert');
+  else card.classList.remove('alert');
+}
+
+// ── WebSocket feeds ──
+function connectWS(cameraId) {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${proto}//${location.host}/operator/ws/live/${cameraId}?token=${TOKEN}`;
+  const ws    = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onmessage = (evt) => {
+    const canvas = document.getElementById('canvas-' + cameraId);
+    if (!canvas) return;
+    const blob = new Blob([evt.data], { type: 'image/jpeg' });
+    const url  = URL.createObjectURL(blob);
+    const img  = new Image();
+    img.onload = () => {
+      canvas.width  = img.width;
+      canvas.height = img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  ws.onclose = () => {
+    delete wsMap[cameraId];
+    setTimeout(() => connectWS(cameraId), 3000);
+  };
+
+  wsMap[cameraId] = ws;
+}
+
+// ── Eventos / Bitácora ──
+async function refreshEvents() {
+  try {
+    const r = await fetch(OP_BASE + '/api/events/recent?minutes=60', { headers: headers() });
+    if (!r.ok) return;
+    const data = await r.json();
+    renderEvents(data.events || []);
+    document.getElementById('statEvents').textContent = data.total || 0;
+  } catch(e) {}
+}
+
+function renderEvents(events) {
+  const panel = document.getElementById('panelEvents');
+  const alertsThisHour = events.filter(e => (e.alert_level || 1) >= 2).length;
+  document.getElementById('statAlerts').textContent = alertsThisHour;
+
+  panel.innerHTML = '';
+  [...events].reverse().forEach(evt => {
+    const item = document.createElement('div');
+    const level = evt.alert_level || 1;
+    item.className = `alert-item level-${level}` + (evt.acknowledged ? ' acked' : '');
+    item.id = 'evt-' + evt.id;
+    const ts = evt.timestamp ? new Date(evt.timestamp * 1000).toLocaleTimeString('es-CL') : '--:--';
+    item.innerHTML = `
+      <div class="alert-top">
+        <span class="alert-type">${evt.event_type || 'Evento'}</span>
+        <span class="alert-time">${ts}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="alert-cam">${evt.camera_id || '—'}</span>
+        ${!evt.acknowledged ? `<button class="alert-ack-btn" onclick="ackEvent('${evt.id}',this)">✓ Ack</button>` : '<span style="color:var(--ok);font-size:.7rem;">✓ Revisado</span>'}
+      </div>`;
+    panel.appendChild(item);
+  });
+}
+
+async function ackEvent(eventId, btn) {
+  try {
+    const r = await fetch(OP_BASE + '/api/events/' + eventId + '/acknowledge', {
+      method: 'POST', headers: headers()
+    });
+    if (r.ok) {
+      const item = document.getElementById('evt-' + eventId);
+      if (item) item.classList.add('acked');
+      btn.textContent = '✓ Revisado';
+      btn.disabled = true;
+    }
+  } catch(e) {}
+}
+
+// ── Acciones ──
+function switchTab(tab) {
+  document.getElementById('panelEvents').classList.toggle('hidden', tab !== 'events');
+  document.getElementById('panelActions').classList.toggle('hidden', tab !== 'actions');
+  document.getElementById('tabEvents').classList.toggle('active', tab === 'events');
+  document.getElementById('tabActions').classList.toggle('active', tab === 'actions');
+}
+
+function refreshAll() { refreshCameras(); refreshEvents(); }
+
+async function exportShift() {
+  const r = await fetch(OP_BASE + '/api/shift/export', { method: 'POST', headers: headers() });
+  const data = await r.json();
+  const blob = new Blob([JSON.stringify(data.shift_report, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'turno_' + new Date().toISOString().slice(0,16).replace('T','_') + '.json';
+  a.click();
+}
+
+async function checkHealth() {
+  const r = await fetch(BASE + '/api/v1/health', { headers: headers() });
+  const d = await r.json();
+  alert('Estado: ' + d.status + '\nDetecciones: ' + d.total_detections + '\nBD: ' + d.db_mode);
+}
+
+// ── Start ──
+if (TOKEN) {
+  document.getElementById('tokenModal').classList.add('hidden');
+  init();
+} else {
+  // En dev sin token, intentar sin autenticación
+  init().catch(() => {
+    document.getElementById('tokenModal').classList.remove('hidden');
+  });
+}
+</script>
+</body>
+</html>

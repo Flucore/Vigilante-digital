@@ -41,6 +41,7 @@ def _start_periodic_sync(conn: FirebaseConnector, interval: int, stop_evt: threa
 
 def main(video_path: Optional[str] = None) -> None:
     video_path = video_path or VIDEO_PATH
+    headless = config.HEADLESS_MODE
 
     # 1. Inicializar Entrada de Video
     cap = cv2.VideoCapture(video_path)
@@ -135,10 +136,10 @@ def main(video_path: Optional[str] = None) -> None:
             except Exception:
                 frame_show = proc_frame
 
-            cv2.imshow("Vigilante IA - Modular Test", frame_show)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            if not headless:
+                cv2.imshow("Vigilante IA - Modular Test", frame_show)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
     finally:
         # Forzar cierre de evento pendiente al terminar
         if config.USE_EVENT_LOGGER and event_logger:
@@ -152,7 +153,8 @@ def main(video_path: Optional[str] = None) -> None:
         stop_event.clear()
         sync_thread.join(timeout=3)
         cap.release()
-        cv2.destroyAllWindows()
+        if not headless:
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

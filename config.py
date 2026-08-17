@@ -17,11 +17,11 @@ from typing import Final
 # Nombre de la colección Firestore (confirmado por ti)
 FIRESTORE_COLLECTION: Final[str] = os.getenv("FIRESTORE_COLLECTION", "Prueba_Alertas")
 
-# Ruta al JSON local generado por JSONLogger (LEGACY: para compatibilidad)
-JSON_LOG_PATH: Final[str] = os.getenv("JSON_LOG_PATH", str(Path("outputs") / "events_history.json"))
+# Ruta al JSONL local generado por JSONLogger (lee JSON legacy para compatibilidad)
+JSON_LOG_PATH: Final[str] = os.getenv("JSON_LOG_PATH", str(Path("outputs") / "events_history.jsonl"))
 
-# Ruta al archivo de eventos (NUEVO: reemplaza JSON_LOG_PATH)
-EVENT_LOG_PATH: Final[str] = os.getenv("EVENT_LOG_PATH", str(Path("outputs") / "events_log.json"))
+# Ruta al archivo JSONL de eventos (NUEVO: reemplaza JSON_LOG_PATH)
+EVENT_LOG_PATH: Final[str] = os.getenv("EVENT_LOG_PATH", str(Path("outputs") / "events_log.jsonl"))
 
 # Intervalo en segundos para sincronizar con Firestore desde el hilo daemon
 SYNC_INTERVAL: Final[int] = int(os.getenv("SYNC_INTERVAL", "10"))
@@ -39,6 +39,9 @@ EVENT_DEDUP_WINDOW_SEC: Final[float] = float(os.getenv("EVENT_DEDUP_WINDOW_SEC",
 
 # Si está habilitado, usa EventLogger (frame-a-evento en lugar de frame-a-frame)
 USE_EVENT_LOGGER: Final[bool] = os.getenv("USE_EVENT_LOGGER", "true").lower() in ["true", "1", "yes"]
+
+# Modo servidor/Docker/Raspberry sin interfaz gráfica: no usar cv2.imshow/waitKey
+HEADLESS_MODE: Final[bool] = os.getenv("HEADLESS_MODE", "false").lower() in ["true", "1", "yes"]
 
 # NOTA: No ponemos la ruta de credenciales aquí. Use la variable de entorno
 # GOOGLE_APPLICATION_CREDENTIALS para que firebase-admin la detecte.

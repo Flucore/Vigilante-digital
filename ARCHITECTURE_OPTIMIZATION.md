@@ -1,3 +1,5 @@
+> **HISTÓRICO.** No es fuente de verdad. Usar `MASTER_DEVELOPMENT_PLAN.md`, `docs/REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md` y `CODE_INDEX.md`.
+
 # ARQUITECTURA: Optimización de Costo y Eficiencia en Firestore
 
 **Documento:** Análisis Arquitectónico  

@@ -1,0 +1,69 @@
+---
+name: code-index
+description: >-
+  Regla que obliga a todo agente a leer CODE_INDEX.md antes de cualquier
+  modificación estructural. El índice es la fuente de verdad de clases,
+  funciones, entidades, triggers, eventos, endpoints y convenciones.
+globs:
+  - "**/*.py"
+  - "**/*.json"
+  - "**/*.sql"
+  - "**/*.html"
+alwaysApply: true
+---
+
+# Regla: Leer CODE_INDEX.md antes de modificar
+
+## Obligatorio antes de cualquier cambio estructural
+
+Si vas a:
+- Crear o modificar una clase o función pública
+- Agregar o cambiar un módulo en cualquier capa
+- Modificar el esquema de eventos canónicos
+- Agregar o renombrar variables de entorno
+- Crear un endpoint de API
+- Cambiar la configuración de `client_config.json`
+
+**DEBES leer `CODE_INDEX.md` en su totalidad primero.**
+
+El índice contiene:
+- Mapa completo de módulos por capa
+- Firmas de todas las funciones públicas
+- Esquema canónico de eventos (campos obligatorios)
+- Todas las variables de entorno requeridas
+- Mapa de triggers (qué activa qué)
+- Convenciones de nomenclatura
+- Glosario de términos del dominio
+- Reglas de importación entre capas (inamovibles)
+
+## Actualizar CODE_INDEX.md al terminar
+
+Cuando introduzcas cualquier cambio en interfaz pública:
+1. Actualiza la sección correspondiente en `CODE_INDEX.md`
+2. Si es un nuevo módulo: agrégalo al mapa de módulos (sección 2) y al directorio de clases (sección 3)
+3. Si es una nueva variable de entorno: agrégala a la sección 5
+4. Si es un nuevo tipo de evento: agrégalo a la sección 4
+
+## Reglas de importación (repetidas aquí por importancia)
+
+```
+runner.py → puede importar de: core/ · inputs/ · outputs/ · config.py
+core/     → NUNCA importa de inputs/ ni outputs/
+inputs/   → NUNCA importa de outputs/
+outputs/  → NUNCA importa de inputs/
+config.py → NO importa de ningún módulo del proyecto
+api/      → puede importar de: core/ · outputs/ · config.py
+```
+
+Violar estas reglas crea acoplamiento circular y es motivo de rechazo.
+
+## Verificación rápida antes de entregar código
+
+- [ ] ¿Leí CODE_INDEX.md?
+- [ ] ¿Los type hints están en toda función pública?
+- [ ] ¿No hay credenciales en ningún archivo .py o .json?
+- [ ] ¿Los timestamps son ISO 8601 con timezone?
+- [ ] ¿Los nuevos eventos tienen `event_schema_version: "2.0"`?
+- [ ] ¿La escritura de archivos usa mkstemp + os.replace (atómica)?
+- [ ] ¿Firebase sigue siendo opcional (envuelto en try/except)?
+- [ ] ¿Actualicé CODE_INDEX.md si cambié alguna interfaz pública?
