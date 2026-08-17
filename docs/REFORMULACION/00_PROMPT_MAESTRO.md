@@ -42,7 +42,7 @@ Frase de posicionamiento obligatoria:
 1. Ley / contrato / obligaciones aplicables (Chile).
 2. Decisión escrita del fundador / excepciones FluCore.
 3. Fundamentos FluCore (leer por título/ruta; NO pegar documentos enteros en el chat):
-   C:\Users\Valen\Documents\Fundamentales\FluCore\
+   C:\ruta\a\Fundamentales\FluCore\
    - VISION.md
    - STACK.md
    - gobernanza/GOBIERNO-DOCUMENTAL.md

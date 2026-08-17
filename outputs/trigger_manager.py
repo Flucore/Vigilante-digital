@@ -4,8 +4,8 @@ El objetivo es desacoplar detección de acciones:
 - Detectores producen eventos canónicos.
 - TriggerManager decide qué acciones ejecutar: correo, WhatsApp/webhook, bocina.
 
-Todos los triggers son opcionales y tolerantes a fallas para que el demo no se
-detenga si una integración externa no está configurada.
+Todos los triggers son opcionales y tolerantes a fallas.
+Capa: solo importa outputs/ y libs externas — NUNCA inputs/.
 """
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ from typing import Any, Dict, Iterable, Optional
 
 import requests
 
-from inputs.ip_speaker import IpSpeaker
 from outputs.email_sender import EmailSender
+from outputs.http_speaker import activate_http_speaker
 
 LOG = logging.getLogger(__name__)
 
@@ -73,6 +73,9 @@ class TriggerManager:
         try:
             event_type = event.get("event_type", "event")
             routes = self._routes_for(event_type)
+            # Nivel 3: asegurar speaker si after_hours critical
+            if int(event.get("alert_level", 1)) >= 3 and "speaker" not in routes:
+                routes = list(routes) + ["speaker"]
             if not routes:
                 LOG.debug("Sin triggers configurados para event_type=%s", event_type)
                 return
@@ -89,7 +92,6 @@ class TriggerManager:
             LOG.exception("Error inesperado ejecutando triggers")
 
     def _routes_for(self, event_type: str) -> Iterable[str]:
-        """Obtiene rutas para el tipo de evento o default."""
         routes_by_event = self.config.get("routes_by_event", {})
         routes = routes_by_event.get(event_type)
         if routes is None:
@@ -116,11 +118,6 @@ class TriggerManager:
         )
 
     def _send_whatsapp(self, event: Dict[str, Any]) -> bool:
-        """Envía evento a un webhook compatible con WhatsApp/Twilio/Make/Zapier.
-
-        Para producción se recomienda un microservicio propio que traduzca estos
-        eventos al proveedor seleccionado (Twilio, WhatsApp Cloud API, Wati, etc.).
-        """
         cfg = self.config.get("whatsapp", {})
         webhook_url = cfg.get("webhook_url")
         if not webhook_url:
@@ -148,24 +145,21 @@ class TriggerManager:
         if not host:
             LOG.warning("Trigger speaker sin host configurado")
             return False
-        speaker = IpSpeaker(host=host, timeout=cfg.get("timeout_sec", 3.0))
-        volume = cfg.get("volume")
-        if volume is not None:
-            speaker.set_volume(int(volume))
-        mp3_url = cfg.get("mp3_url")
-        if mp3_url:
-            return speaker.play_url(mp3_url)
-
-        # Fallback: endpoint genérico /alert para bocinas DIY.
-        return _post_json(f"{host.rstrip('/')}/alert", {"event": event}, timeout=cfg.get("timeout_sec", 3.0))
+        return activate_http_speaker(
+            str(host),
+            event=event,
+            volume=cfg.get("volume"),
+            mp3_url=cfg.get("mp3_url"),
+            timeout_sec=float(cfg.get("timeout_sec", 3.0)),
+        )
 
 
 def _event_text(event: Dict[str, Any]) -> str:
-    """Texto corto de alerta para correo/WhatsApp."""
     return (
         f"Tipo: {event.get('event_type')}\n"
         f"Cámara: {event.get('camera_id', '-')}\n"
         f"Zona: {event.get('zone', '-')}\n"
+        f"Nivel: {event.get('alert_level', '-')}\n"
         f"Hora: {event.get('timestamp') or event.get('start_time', '-')}\n"
         f"Detalle: {json.dumps(event.get('metadata', {}), ensure_ascii=False)}"
     )

@@ -37,7 +37,7 @@ Setup (Nuevo en v2.0):
 ### Paso 1: Crear estructura de carpetas
 
 ```powershell
-cd C:\Users\Valen\OneDrive\Documentos\DetectorIA\VigilanteDigital_1.0
+cd C:\ruta\a\VigilanteDigital
 mkdir tests\test_videos
 mkdir test_outputs
 mkdir scripts  # Si no existe
@@ -53,7 +53,7 @@ Copy-Item "C:\ruta\a\tu\video.mp4" -Destination "tests\test_videos\fall_sample_0
 ### Paso 3: Configurar credenciales Firebase (PowerShell)
 
 ```powershell
-$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\secrets\alertas1-service.json"
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\secrets\firebase-service-account.json"
 $env:USE_EVENT_LOGGER = "true"  # NEW in v2.0: habilitar EventLogger
 
 # Verificar:
@@ -95,7 +95,7 @@ cat test_outputs\events_log.json  # v2.0: archivo nuevo con eventos agregados
 
 # Eventos en Firestore:
 # Ve a https://console.firebase.google.com
-# Proyecto: alertas1-b2c10
+# Proyecto: TU_PROYECTO_FIREBASE
 # Firestore > Colección "Prueba_Alertas"
 # Verás 2 documentos en lugar de 5,330 ✓
 ```
@@ -290,7 +290,7 @@ Get-ChildItem tests\test_videos\
 ### "GOOGLE_APPLICATION_CREDENTIALS not found"
 ```powershell
 # Configura de nuevo:
-$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\secrets\alertas1-service.json"
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\secrets\firebase-service-account.json"
 
 # Verifica:
 Write-Host "Ruta: $env:GOOGLE_APPLICATION_CREDENTIALS"
@@ -299,7 +299,7 @@ Test-Path $env:GOOGLE_APPLICATION_CREDENTIALS
 
 ### "Firebase connection failed"
 ```
-1. ¿El JSON corresponde a alertas1-b2c10?
+1. ¿El JSON corresponde a TU_PROYECTO_FIREBASE?
    - Abre el JSON y revisa "project_id"
 
 2. ¿Firebase tiene la colección "Prueba_Alertas"?
@@ -405,7 +405,7 @@ Crea `docs/TEST_RESULTS.md`:
 
 ```powershell
 # Abrir proyecto
-cd C:\Users\Valen\OneDrive\Documentos\DetectorIA\VigilanteDigital_1.0
+cd C:\ruta\a\VigilanteDigital
 
 # Activar entorno virtual
 .venv\Scripts\Activate.ps1

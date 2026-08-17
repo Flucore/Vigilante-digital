@@ -50,3 +50,19 @@ HEADLESS_MODE: Final[bool] = os.getenv("HEADLESS_MODE", "false").lower() in ["tr
 # Por defecto usamos 0 (webcam por defecto). Se puede sobrescribir con la variable
 # de entorno VIDEO_SOURCE.
 VIDEO_SOURCE: Final[str] = os.getenv("VIDEO_SOURCE", "0")
+
+# ============================================================================
+# M0 — MEMORIA GEOMÉTRICA (zonas / geofence)
+# ============================================================================
+
+# IoU mínimo bbox ∩ polígono de zona para contar como ocupación
+ZONE_MIN_IOU: Final[float] = float(os.getenv("ZONE_MIN_IOU", "0.15"))
+
+# Frames consecutivos sobre el umbral antes de emitir evento
+ZONE_MIN_PERSISTENCE_FRAMES: Final[int] = int(os.getenv("ZONE_MIN_PERSISTENCE_FRAMES", "8"))
+
+# Cooldown entre eventos de la misma zona (segundos)
+ZONE_EVENT_COOLDOWN_SEC: Final[float] = float(os.getenv("ZONE_EVENT_COOLDOWN_SEC", "5.0"))
+
+# Retención de evidencia / compliance (días)
+DATA_RETENTION_DAYS: Final[int] = int(os.getenv("DATA_RETENTION_DAYS", "30"))

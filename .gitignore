@@ -3,6 +3,8 @@
 !requirements.txt
 !package.json
 !demo_config.json
+!client_config.example.json
+!client_config.*.example.json
 .env
 .env.*
 !.env.example
@@ -13,6 +15,8 @@
 *service-account*.json
 *service_account*.json
 *firebase-adminsdk*.json
+client_config.json
+
 
 # Google Cloud
 GOOGLE_APPLICATION_CREDENTIALS

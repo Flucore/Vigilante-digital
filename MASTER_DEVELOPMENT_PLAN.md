@@ -63,11 +63,11 @@ Contexto IA: [`AI_CONTEXT.md`](AI_CONTEXT.md).
 ## 5. Roadmap ejecutivo
 
 ```text
-DOCS ✓ → C1 M0 IoU → C2 Care → C3 Perimeter → C4 Aqua → C5 Empaque → C6 Tests
+DOCS ✓ → C1 M0 ✓ → C2 Care ✓ → C3 Perimeter ✓ → C4 Aqua ✓ → C5 Empaque → C6 Tests
               └─► (cuando C1 estable) A1 HITL → A2 datos → A3 M2 → A4 promote → A8 tesis
 ```
 
-Prompts listos: [`DESARROLLO_EJECUTABLE.md`](DESARROLLO_EJECUTABLE.md).
+**Estado:** C0–C4 Done · **siguiente = C5** (`DESARROLLO_EJECUTABLE.md`).
 
 ## 6. SLA / alertas (piloto controlado)
 

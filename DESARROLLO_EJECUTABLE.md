@@ -5,7 +5,7 @@
 | Estado | **Vigente — listo para código** |
 | Versión | 1.0 |
 | Fecha | 2026-08-16 |
-| Unidad activa por defecto | **C1** |
+| Unidad activa por defecto | **C5** |
 | Plan | [MASTER_DEVELOPMENT_PLAN.md](MASTER_DEVELOPMENT_PLAN.md) · [06_PLAN…](docs/REFORMULACION/06_PLAN_DUAL_TRACK.md) |
 | Contexto | [AI_CONTEXT.md](AI_CONTEXT.md) · [GLOSARIO.md](GLOSARIO.md) · [CODE_INDEX.md](CODE_INDEX.md) |
 
@@ -18,10 +18,10 @@
 ```text
 Lee AI_CONTEXT.md, GLOSARIO.md, CODE_INDEX.md y DESARROLLO_EJECUTABLE.md.
 Ejecuta SOLO la unidad indicada abajo. Sin ampliar alcance.
-TRACK=COMERCIAL · Unidad C1
+TRACK=COMERCIAL · Unidad C5
 ```
 
-Tras C1 Done, cambiar a C2, etc.
+Tras C5 Done, cambiar a C6, etc.
 
 ---
 
@@ -32,11 +32,11 @@ Tras C1 Done, cambiar a C2, etc.
 | ID | Sprint | Estado | Dependencia |
 |---|---|---|---|
 | C0 | Ola DOCS | **Done** | — |
-| **C1** | M0 zonas + IoU | **Siguiente** | C0 |
-| C2 | Care evento canónico | Pendiente | C1 recomendado |
-| C3 | Perimeter + fix capa trigger | Pendiente | C2 o paralelo tras C1 |
-| C4 | Aqua `pool` + M0 | Pendiente | **C1** |
-| C5 | Empaque Docker + runbook | Pendiente | C2–C4 parcial |
+| **C1** | M0 zonas + IoU | Done | C0 |
+| **C2** | Care evento canónico | **Done** | C1 |
+| **C3** | Perimeter + fix capa trigger | **Done** | C2 |
+| C4 | Aqua `pool` + M0 | **Done** | C1 |
+| C5 | Empaque Docker + runbook | **Siguiente** | C2–C4 parcial |
 | C6 | Tests smoke | Pendiente | C1–C3 |
 
 ### F2 Académico (no en liquidez)

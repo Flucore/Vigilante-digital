@@ -1,0 +1,67 @@
+{
+  "_schema_version": "2.0",
+  "_client_id": "demo_geofence",
+  "_client_name": "Demo M0 Geofence",
+  "_comment": "Ejemplo sin secretos. Copiar a client_config.json y ajustar. Puntos normalizados 0–1.",
+  "schedule": {
+    "timezone": "America/Santiago",
+    "work_days": [0, 1, 2, 3, 4],
+    "start_time": "08:00",
+    "end_time": "18:00",
+    "holidays": []
+  },
+  "detection": {
+    "use_gpu": true,
+    "min_fall_frames": 8,
+    "fall_angle_threshold_deg": 55.0,
+    "zone_min_iou": 0.15,
+    "zone_min_persistence_frames": 8,
+    "zone_event_cooldown_sec": 5.0
+  },
+  "demo": {
+    "snapshot_dir": "test_outputs/snapshots"
+  },
+  "triggers": {
+    "enabled": false
+  },
+  "cameras": [
+    {
+      "id": "CAM_GEOFENCE",
+      "name": "Patio / Piscina Demo",
+      "stream_url": "0",
+      "zone": "Parcela Demo",
+      "sector": "Exterior",
+      "enabled": true,
+      "modules_active": ["geofence"],
+      "alert_level_after_hours": 2,
+      "zones": [
+        {
+          "id": "pool_1",
+          "label": "Piscina",
+          "type": "pool",
+          "critical": true,
+          "normalized": true,
+          "points": [
+            [0.25, 0.35],
+            [0.75, 0.35],
+            [0.75, 0.75],
+            [0.25, 0.75]
+          ]
+        },
+        {
+          "id": "yard_1",
+          "label": "Patio",
+          "type": "geofence",
+          "critical": false,
+          "normalized": true,
+          "points": [
+            [0.05, 0.05],
+            [0.95, 0.05],
+            [0.95, 0.95],
+            [0.05, 0.95]
+          ]
+        }
+      ]
+    }
+  ]
+}

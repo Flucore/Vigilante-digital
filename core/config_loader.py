@@ -40,13 +40,19 @@ _REQUIRED_KEYS: frozenset = frozenset({"_schema_version", "schedule", "cameras"}
 
 @dataclass
 class ZoneConfig:
-    """Zona de detección (polígono, línea o ROI) dentro de una cámara."""
+    """Zona de detección (polígono M0 / línea / ROI) dentro de una cámara.
+
+    type (M0): polygon | geofence | pool | wall | coop | machine_yard | custom
+    type (otros): line | roi
+    points: coordenadas; si normalized=True están en [0, 1] relativos al frame.
+    """
 
     id: str
     label: str
-    type: str               # "polygon" | "line" | "roi"
+    type: str
     critical: bool = False
-    points: List[List[int]] = field(default_factory=list)
+    points: List[List[float]] = field(default_factory=list)
+    normalized: bool = True
 
 
 @dataclass
@@ -180,6 +186,7 @@ class ConfigLoader:
                     type=z.get("type", "polygon"),
                     critical=bool(z.get("critical", False)),
                     points=z.get("points", []),
+                    normalized=bool(z.get("normalized", True)),
                 )
                 for i, z in enumerate(cam_raw.get("zones", []))
             ]

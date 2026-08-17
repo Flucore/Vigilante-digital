@@ -27,15 +27,15 @@
 
 Orden obligatorio. Hecho > perfecto. Reutilizar `core/`.
 
-| ID | Entrega | Deudas | Fuera (no meter aquí) |
+| ID | Entrega | Deudas | Estado / fuera de alcance |
 |---|---|---|---|
 | **C0** | Cerrar ola DOCS (Unidad 5) | D09 | **Done** |
-| **C1** | **Aprendizaje-A / M0:** zonas máscara + IoU — ver `DESARROLLO_EJECUTABLE.md` | D05, D01 (parcial) | SAM en edge; train; dashboard completo |
-| **C2** | **Care estable:** EventLogger multi-campo canónico en caídas; PDF/email; menos ratio crudo | D04 | Fine-tune caída |
-| **C3** | **Perimeter Guard piloto:** línea + after_hours + triggers; fix capa TriggerManager↔speaker | D03 | `intrusion_climb` completo (M3 rico) |
-| **C4** | **Aqua mínimo vendible:** tipo zona `pool` + M0 + alerta Notify (no “niño” como clase) | D05, D06 | Clasificador demográfico; menores en dataset sin protocolo |
-| **C5** | Empaque edge: Docker/compose runner + runbook commissioning | D08 (parcial) | Kubernetes / bus Redis |
-| **C6** | Tests smoke Care + Perimeter + M0 IoU | D10 | Suite MLOps |
+| **C1** | M0 zonas + IoU (`core/zone_geometry.py`) | D05 | **Done** (sin SAM/train/HITL UI) |
+| **C2** | Care estable: EventLogger canónico; PDF/email async | D04 | **Done** |
+| **C3** | Perimeter + fix capa TriggerManager↔speaker | D03 | **Done** |
+| **C4** | Aqua `pool` + M0 + Notify | D05, D06 | **Done** |
+| **C5** | Empaque Docker + runbook | D08 | **Siguiente** · sin K8s/bus |
+| **C6** | Tests smoke Care + Perimeter + M0 | D10 | Pendiente · sin suite MLOps |
 
 ### Sprints Aprendizaje en F1
 
@@ -72,7 +72,7 @@ No abrir 4 repos en C1–C6.
 ## 4. Diagrama temporal (orientativo)
 
 ```text
-NOW     U5 DOCS ──► C1 M0 ──► C2 Care ──► C3 Perimeter ──► C4 Aqua ──► C5 empaque
+NOW     U5 DOCS ──► C1 M0 ──► C2 Care ──► C3 Perimeter ──► C4 Aqua ✓ ──► C5 empaque
                       │                      │
                       └──────────┬───────────┘
                                  ▼

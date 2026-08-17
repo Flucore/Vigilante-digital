@@ -100,12 +100,24 @@ class PerimeterDetector:
 
         event = {
             "event_type": "perimeter_breach",
+            "event_schema_version": "2.0",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "start_time": datetime.now(timezone.utc).isoformat(),
+            "end_time": datetime.now(timezone.utc).isoformat(),
+            "duration_seconds": 0.0,
+            "metadata": {
+                "track_id": track_id,
+                "line_label": self.label,
+                "centroid": (cx, cy),
+                "from_side": last_side,
+                "to_side": current_side,
+            },
+            # Compat campos legacy leídos por demos antiguos
             "track_id": track_id,
             "line_label": self.label,
             "centroid": (cx, cy),
             "from_side": last_side,
             "to_side": current_side,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         logger.warning("[PERIMETER] Cruce detectado — track_id=%d", track_id)
         return event
@@ -161,8 +173,9 @@ class PerimeterDetector:
 
     @classmethod
     def from_config(cls, cfg: Dict) -> "PerimeterDetector":
-        """Crea instancia desde el bloque perimeter_line de demo_config.json."""
+        """Crea instancia desde el bloque perimeter_line de config JSON."""
         start = tuple(cfg.get("start", [0, 300]))
         end = tuple(cfg.get("end", [1280, 300]))
         label = cfg.get("label", "Perímetro")
-        return cls(line_start=start, line_end=end, label=label)
+        cooldown = float(cfg.get("cooldown_sec", 3.0))
+        return cls(line_start=start, line_end=end, label=label, cooldown_sec=cooldown)

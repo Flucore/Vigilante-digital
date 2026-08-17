@@ -51,7 +51,7 @@ fuentes_de_verdad:
 | Track | Uso |
 |---|---|
 | `TRACK_DOCS` | Solo si hay corrección documental puntual |
-| `TRACK_COMERCIAL` | **Siguiente por defecto:** C1 M0 IoU |
+| `TRACK_COMERCIAL` | **Siguiente por defecto:** C5 Empaque |
 | `TRACK_ACADEMICO` | A1+ HITL/MLOps (no mezclar en C1–C6) |
 
 ## 3. Reglas técnicas
@@ -94,12 +94,12 @@ fuentes_de_verdad:
 
 ## 6. Estado del proyecto
 
-- **Último hito completado:** **Unidad 5 — ola DOCS CERRADA.**
-- **Paquete canónico:** `docs/REFORMULACION/00`–`09` + `AI_CONTEXT.md`.
-- **Trabajo no comprometido:** sí — docs de reformulación pendientes de commit (si el humano lo pide).
-- **Bloqueos:** DECISIONES HUMANAS (pricing, FAR, universidad, vertical primer piloto) — no bloquean C1 técnico.
-- **Deuda / riesgos:** `09_REGISTRO_RIESGOS_Y_DEUDA.md`.
-- **Siguiente paso:** **`TRACK=COMERCIAL · C1`** — prompt en [`DESARROLLO_EJECUTABLE.md`](DESARROLLO_EJECUTABLE.md) §3 (también en `08_BACKLOG_HUMANOS_IA.md` §6).
+- **Último hito completado:** **C4 — Aqua & Risk mínimo** (`modules_active: aqua`, solo `type=pool`, Notify).
+- **Paquete canónico:** `docs/REFORMULACION/` + `DESARROLLO_EJECUTABLE.md`.
+- **Trabajo no comprometido:** sí — C1–C4 pendientes de commit si el humano lo pide.
+- **Bloqueos:** DECISIONES HUMANAS (pricing, FAR, universidad).
+- **Deuda / riesgos:** D03 **cerrada**; D05/D06 Aqua M0 **mitigada** (piloto pool).
+- **Siguiente paso:** **`TRACK=COMERCIAL · C5`** — Empaque Docker + runbook (`DESARROLLO_EJECUTABLE.md` §3 C5).
 
 ## 7. Formato de solicitud
 

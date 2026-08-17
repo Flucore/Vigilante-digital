@@ -9,7 +9,7 @@
 ### 1. Instalar dependencias
 
 ```powershell
-cd c:\Users\Valen\Documents\VigilanteDigital_1.0
+cd C:\ruta\a\VigilanteDigital
 
 # PyTorch con GPU (hacer esto PRIMERO)
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121

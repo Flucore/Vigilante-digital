@@ -171,7 +171,7 @@ función, archivo de script o programa ejecutable.
 ### Causa raíz
 `pip install` en modo "user installation" instala scripts en:
 ```
-C:\Users\Valen\AppData\Roaming\Python\Python312\Scripts
+C:\ruta\Scripts\Python
 ```
 Este directorio **no está en el PATH del sistema** por defecto en Windows.
 
@@ -188,7 +188,7 @@ python -m uvicorn api.forensic_api:app --port 8000 --host 0.0.0.0
 ### Solución permanente (opcional)
 Agregar el directorio al PATH del sistema:
 ```powershell
-$env:PATH += ";C:\Users\Valen\AppData\Roaming\Python\Python312\Scripts"
+$env:PATH += ";C:\ruta\Scripts\Python"
 # Para hacerlo permanente, agregar al perfil de PowerShell o variables de entorno del sistema
 ```
 

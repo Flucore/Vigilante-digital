@@ -82,6 +82,26 @@
         "end": [1180, 400],
         "label": "Línea de Seguridad"
       }
+    },
+    {
+      "id": "CAM_5_GEOFENCE_EXAMPLE",
+      "name": "M0 Geofence / Piscina",
+      "_comment": "Usar client_config.example.json con modules_active geofence para runner. Demo referencia de zona pool.",
+      "url": "http://192.168.1.105:8080/video",
+      "zone": "Parcela",
+      "sector": "Piscina",
+      "module": "geofence",
+      "enabled": false,
+      "zones": [
+        {
+          "id": "pool_demo",
+          "label": "Piscina",
+          "type": "pool",
+          "critical": true,
+          "normalized": true,
+          "points": [[0.3, 0.4], [0.7, 0.4], [0.7, 0.8], [0.3, 0.8]]
+        }
+      ]
     }
   ],
   "triggers": {
@@ -91,9 +111,11 @@
     "default_routes": ["speaker"],
     "routes_by_event": {
       "fall": ["speaker", "whatsapp", "email"],
+      "perimeter_breach": ["speaker", "whatsapp", "email"],
+      "zone_occupancy": ["webhook"],
+      "pool_occupancy": ["speaker", "whatsapp"],
       "red_shirt_entry": ["speaker", "whatsapp"],
-      "traffic_light_change": ["webhook"],
-      "perimeter_breach": ["speaker", "whatsapp"]
+      "traffic_light_change": ["webhook"]
     },
     "email": {
       "recipient": "destinatario@empresa.cl",

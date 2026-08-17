@@ -42,9 +42,10 @@ if str(ROOT) not in sys.path:
 from core.config_loader import ConfigLoader, CameraConfig, is_after_hours
 from core.detector_factory import get_detector, detector_info
 from core.perimeter_detector import PerimeterDetector
+from core.zone_geometry import AQUA_ZONE_TYPES, ZoneOccupancyMonitor, draw_zones
 from inputs.video_stream import VideoStream
 from inputs.file_reader import FileVideoReader
-from outputs.event_logger import EventLogger
+from outputs.event_logger import EventLogger, enrich_canonical_event, resolve_is_falling
 from outputs.hud_renderer import draw_hud, draw_no_signal, draw_hardware_trigger_overlay
 from outputs.metadata_indexer import MetadataIndexer
 from outputs.trigger_manager import TriggerManager
@@ -70,6 +71,63 @@ try:
     _COLOR_DETECTORS_AVAILABLE = True
 except Exception:
     _COLOR_DETECTORS_AVAILABLE = False
+
+
+def _m0_module_flags(modules_active: List[str], primary_module: str) -> tuple[bool, bool]:
+    """Retorna (use_m0, use_aqua). Aqua (C4) restringe zonas a type=pool."""
+    mods = modules_active or []
+    use_aqua = primary_module == "aqua" or "aqua" in mods
+    use_geofence = primary_module == "geofence" or "geofence" in mods
+    return (use_aqua or use_geofence), use_aqua
+
+
+def _dispatch_event_triggers(
+    event: Dict[str, Any],
+    trigger_manager: TriggerManager,
+    *,
+    report_dir: Path,
+    pdf_cfg: Optional[Dict[str, Any]] = None,
+    auto_pdf: bool = False,
+) -> None:
+    """Genera PDF (si aplica) y dispara triggers fuera del hilo de captura."""
+    pdf_cfg = pdf_cfg or {}
+    event_type = str(event.get("event_type", "event"))
+    routes_by_event = trigger_manager.config.get("routes_by_event", {})
+    routes = routes_by_event.get(event_type)
+    if routes is None:
+        routes = trigger_manager.config.get("default_routes", [])
+    routes = list(routes or [])
+    needs_pdf = bool(auto_pdf or ("email" in routes and trigger_manager.enabled))
+
+    def _job() -> None:
+        pdf_path: Optional[str] = None
+        try:
+            if needs_pdf:
+                photo = event.get("photo_path") or event.get("photo_start")
+                frame_img = None
+                if photo and Path(str(photo)).exists():
+                    frame_img = cv2.imread(str(photo))
+                generator = ReportGenerator(
+                    camera_name=str(event.get("camera_id", "CAM")),
+                    sector=str(event.get("sector") or pdf_cfg.get("sector_label", "")),
+                    facility=str(pdf_cfg.get("facility_name", "Instalación")),
+                )
+                result = generator.generate_report(
+                    event=event,
+                    frame_image=frame_img,
+                    output_dir=str(report_dir),
+                )
+                if isinstance(result, str) and result:
+                    pdf_path = result
+                    event["pdf_path"] = pdf_path
+        except Exception:
+            LOG.exception("Error generando PDF para event_type=%s", event_type)
+        try:
+            trigger_manager.handle_event(event, pdf_path)
+        except Exception:
+            LOG.exception("Error despachando triggers")
+
+    threading.Thread(target=_job, daemon=True, name="care-trigger").start()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -167,11 +225,12 @@ class CameraWorker(threading.Thread):
     def run(self) -> None:
         det_cfg = self.detection_cfg
         primary_module = self.cam.modules_active[0] if self.cam.modules_active else "fall_detection"
+        use_m0, use_aqua = _m0_module_flags(self.cam.modules_active, primary_module)
 
         # Crear detector según módulo
         detector = None
         engine_info: Dict[str, str] = {"engine": "Rule-based", "device": "CPU"}
-        if primary_module in ("fall_detection", "perimeter"):
+        if primary_module in ("fall_detection", "perimeter") or use_m0:
             try:
                 detector = get_detector(
                     use_gpu=det_cfg.get("use_gpu", True),
@@ -189,6 +248,28 @@ class CameraWorker(threading.Thread):
                 perimeter = PerimeterDetector.from_config(self.cam.raw["perimeter_line"])
             except Exception as exc:
                 LOG.warning("[%s] PerimeterDetector no creado: %s", self.cam.id, exc)
+
+        # M0 — geofence / Aqua (pool)
+        zone_monitor: Optional[ZoneOccupancyMonitor] = None
+        if use_m0:
+            zone_monitor = ZoneOccupancyMonitor(
+                self.cam.zones,
+                min_iou=float(det_cfg.get("zone_min_iou", app_config.ZONE_MIN_IOU)),
+                min_persistence_frames=int(
+                    det_cfg.get("zone_min_persistence_frames", app_config.ZONE_MIN_PERSISTENCE_FRAMES)
+                ),
+                cooldown_sec=float(
+                    det_cfg.get("zone_event_cooldown_sec", app_config.ZONE_EVENT_COOLDOWN_SEC)
+                ),
+                allowed_types=AQUA_ZONE_TYPES if use_aqua else None,
+            )
+            if not zone_monitor.zones:
+                LOG.warning(
+                    "[%s] %s activo pero sin zonas M0 válidas (points>=3%s).",
+                    self.cam.id,
+                    "aqua" if use_aqua else "geofence",
+                    ", type=pool" if use_aqua else "",
+                )
 
         stream = VideoStream(
             self.cam.stream_url or "0",
@@ -227,31 +308,45 @@ class CameraWorker(threading.Thread):
 
                 # ── Lógica de módulo ───────────────────────────────────────
                 if primary_module == "fall_detection" and bbox:
-                    is_falling = bbox.get("is_falling") or (
-                        bbox.get("height", 0) / max(1, bbox.get("width", 1)) < 0.75
-                    )
+                    is_falling, fall_source = resolve_is_falling(bbox)
                     detections_this_frame.append({
                         "object_class": "person",
                         "confidence": float(bbox.get("confidence", 0.8)),
                         "bbox": {k: bbox.get(k, 0) for k in ("xmin", "ymin", "xmax", "ymax")},
                         "track_id": bbox.get("track_id"),
-                        "metadata": {"is_falling": is_falling},
+                        "metadata": {"is_falling": is_falling, "fall_signal": fall_source},
                     })
+                    start_snap = ""
+                    if is_falling and self.event_logger.state == "NORMAL":
+                        start_snap = self._save_snapshot(proc_frame, "fall")
                     completed = self.event_logger.update(
                         is_falling=is_falling,
                         frame_idx=frame_idx,
-                        metadata={"bbox": bbox, "cam_id": self.cam.id},
+                        photo_path=start_snap,
+                        metadata={
+                            "bbox": {k: bbox.get(k) for k in ("xmin", "ymin", "xmax", "ymax", "width", "height", "confidence", "is_falling")},
+                            "cam_id": self.cam.id,
+                            "fall_signal": fall_source,
+                        },
                     )
                     if completed:
                         current_state = "ALERTA"
-                        snap = self._save_snapshot(proc_frame, "fall")
-                        completed.update({
-                            "camera_id": self.cam.id,
-                            "zone": self.cam.zone,
-                            "photo_path": snap,
-                            "event_schema_version": "2.0",
-                            "compliance": {"retention_days": 30, "consent_basis": "security_monitoring"},
-                        })
+                        if not completed.get("photo_path"):
+                            snap = self._save_snapshot(proc_frame, "fall")
+                        else:
+                            snap = completed.get("photo_path")
+                        completed = enrich_canonical_event(
+                            completed,
+                            camera_id=self.cam.id,
+                            zone=self.cam.zone,
+                            sector=self.cam.sector,
+                            alert_level=2 if not (
+                                is_after_hours(self.schedule_cfg)
+                                and self.state.alert_level_after_hours >= 3
+                            ) else 3,
+                            photo_path=snap,
+                            retention_days=int(getattr(app_config, "DATA_RETENTION_DAYS", 30)),
+                        )
                         self.event_logger.log_event(completed)
                         self.state.register_event(completed)
                         self.event_queue.put(completed)
@@ -266,14 +361,66 @@ class CameraWorker(threading.Thread):
                         if breach:
                             current_state = "INTRUSION"
                             snap = self._save_snapshot(proc_frame, "perimeter")
-                            breach.update({
-                                "camera_id": self.cam.id,
-                                "zone": self.cam.zone,
-                                "photo_path": snap,
-                                "event_schema_version": "2.0",
-                            })
+                            after_hours = is_after_hours(self.schedule_cfg)
+                            # Breach confirmado → Notify (2); Critical (3) si after_hours y config ≥3
+                            alert_level = 2
+                            if after_hours and self.state.alert_level_after_hours >= 3:
+                                alert_level = 3
+                            elif after_hours:
+                                alert_level = max(2, min(3, self.state.alert_level_after_hours))
+                            breach = enrich_canonical_event(
+                                breach,
+                                camera_id=self.cam.id,
+                                zone=self.cam.zone,
+                                sector=self.cam.sector,
+                                alert_level=alert_level,
+                                photo_path=snap,
+                                retention_days=app_config.DATA_RETENTION_DAYS,
+                            )
+                            breach["metadata"] = {
+                                **(breach.get("metadata") or {}),
+                                "after_hours": after_hours,
+                            }
                             self.state.register_event(breach)
                             self.event_queue.put(breach)
+                            self._maybe_trigger_hardware(breach)
+
+                elif use_m0 and zone_monitor is not None:
+                    active_ids: List[str] = []
+                    if bbox:
+                        h, w = proc_frame.shape[:2]
+                        hits = zone_monitor.evaluate_frame(bbox, w, h)
+                        active_ids = [h.zone_id for h in hits]
+                        zone_evt = zone_monitor.update(
+                            bbox,
+                            w,
+                            h,
+                            frame_idx=frame_idx,
+                            camera_id=self.cam.id,
+                            site_zone=self.cam.zone,
+                            track_id=bbox.get("track_id"),
+                        )
+                        if zone_evt:
+                            is_aqua = zone_evt.get("event_type") == "pool_occupancy"
+                            current_state = "AQUA" if (use_aqua or is_aqua) else "ZONA"
+                            snap = self._save_snapshot(proc_frame, zone_evt["event_type"])
+                            alert_level = int(zone_evt.get("alert_level") or (2 if is_aqua else 1))
+                            zone_evt = enrich_canonical_event(
+                                zone_evt,
+                                camera_id=self.cam.id,
+                                zone=self.cam.zone,
+                                sector=self.cam.sector,
+                                alert_level=alert_level,
+                                photo_path=snap,
+                                retention_days=app_config.DATA_RETENTION_DAYS,
+                            )
+                            self.event_logger.log_event(zone_evt)
+                            self.state.register_event(zone_evt)
+                            self.event_queue.put(zone_evt)
+                            self._maybe_trigger_hardware(zone_evt)
+                        elif active_ids:
+                            current_state = "AQUA" if use_aqua else "ZONA"
+                    draw_zones(proc_frame, zone_monitor.zones, active_zone_ids=active_ids)
 
                 # ── Indexación de metadata ─────────────────────────────────
                 if self.metadata_indexer and detections_this_frame:
@@ -376,6 +523,9 @@ def run_realtime(loader: ConfigLoader, headless: bool) -> None:
         )
 
     trigger_manager = TriggerManager(loader.get_section("triggers", {}))
+    pdf_cfg = loader.get_section("pdf_report", {})
+    report_dir = ROOT / demo_cfg.get("report_dir", demo_cfg.get("snapshot_dir", "test_outputs"))
+    auto_pdf = bool(demo_cfg.get("auto_pdf_on_event", False))
 
     stop_event = threading.Event()
     event_queue: queue.Queue = queue.Queue()
@@ -403,11 +553,17 @@ def run_realtime(loader: ConfigLoader, headless: bool) -> None:
 
     try:
         while True:
-            # Despachar eventos de la cola
+            # Despachar eventos de la cola (PDF/email fuera del hilo de captura)
             while not event_queue.empty():
                 try:
                     ev = event_queue.get_nowait()
-                    trigger_manager.handle_event(ev)
+                    _dispatch_event_triggers(
+                        ev,
+                        trigger_manager,
+                        report_dir=report_dir,
+                        pdf_cfg=pdf_cfg,
+                        auto_pdf=auto_pdf,
+                    )
                 except queue.Empty:
                     break
 
@@ -497,6 +653,7 @@ def run_file(
 
     snapshot_dir = ROOT / demo_cfg.get("snapshot_dir", "test_outputs/snapshots")
     primary_module = cam.modules_active[0] if cam.modules_active else "fall_detection"
+    use_m0, use_aqua = _m0_module_flags(cam.modules_active, primary_module)
 
     LOG.info("Modo FILE | Archivo: %s | Módulo: %s | Cámara: %s", source, primary_module, cam.id)
 
@@ -519,6 +676,26 @@ def run_file(
             perimeter = PerimeterDetector.from_config(cam.raw["perimeter_line"])
         except Exception as exc:
             LOG.warning("PerimeterDetector no creado: %s", exc)
+
+    zone_monitor: Optional[ZoneOccupancyMonitor] = None
+    if use_m0:
+        zone_monitor = ZoneOccupancyMonitor(
+            cam.zones,
+            min_iou=float(det_cfg.get("zone_min_iou", app_config.ZONE_MIN_IOU)),
+            min_persistence_frames=int(
+                det_cfg.get("zone_min_persistence_frames", app_config.ZONE_MIN_PERSISTENCE_FRAMES)
+            ),
+            cooldown_sec=float(
+                det_cfg.get("zone_event_cooldown_sec", app_config.ZONE_EVENT_COOLDOWN_SEC)
+            ),
+            allowed_types=AQUA_ZONE_TYPES if use_aqua else None,
+        )
+        if not zone_monitor.zones:
+            LOG.warning(
+                "%s activo pero sin zonas M0 válidas (points>=3%s).",
+                "aqua" if use_aqua else "geofence",
+                ", type=pool" if use_aqua else "",
+            )
 
     # Indexador de metadatos
     indexer: Optional[MetadataIndexer] = None
@@ -584,36 +761,55 @@ def run_file(
 
             # ── Lógica ─────────────────────────────────────────────────────
             if primary_module == "fall_detection" and bbox:
-                is_falling = bbox.get("is_falling") or (
-                    bbox.get("height", 0) / max(1, bbox.get("width", 1)) < 0.75
-                )
+                is_falling, fall_source = resolve_is_falling(bbox)
                 detections_this_frame.append({
                     "object_class": "person",
                     "confidence": float(bbox.get("confidence", 0.8)),
                     "bbox": {k: bbox.get(k, 0) for k in ("xmin", "ymin", "xmax", "ymax")},
-                    "metadata": {"is_falling": is_falling},
+                    "metadata": {"is_falling": is_falling, "fall_signal": fall_source},
                 })
+                start_snap = ""
+                if is_falling and event_logger.state == "NORMAL":
+                    start_snap = _save_snapshot(proc_frame, cam.id, "fall", snapshot_dir)
                 completed = event_logger.update(
                     is_falling=is_falling,
                     frame_idx=frame_idx,
-                    metadata={"bbox": bbox, "cam_id": cam.id},
+                    photo_path=start_snap,
+                    metadata={
+                        "bbox": {
+                            k: bbox.get(k)
+                            for k in ("xmin", "ymin", "xmax", "ymax", "width", "height", "confidence", "is_falling")
+                        },
+                        "cam_id": cam.id,
+                        "fall_signal": fall_source,
+                    },
                 )
                 if completed:
                     current_state = "ALERTA"
                     events_count += 1
-                    snap = _save_snapshot(proc_frame, cam.id, "fall", snapshot_dir)
-                    completed.update({
-                        "camera_id": cam.id,
-                        "zone": cam.zone,
-                        "photo_path": snap,
-                        "event_schema_version": "2.0",
-                        "compliance": {"retention_days": 30, "consent_basis": "security_monitoring"},
-                    })
-                    event_logger.log_event(completed)
-                    trigger_manager.handle_event(completed)
-                    # Evaluar nivel 3
+                    snap = completed.get("photo_path") or _save_snapshot(
+                        proc_frame, cam.id, "fall", snapshot_dir
+                    )
                     after_hours = is_after_hours(schedule_cfg)
-                    if after_hours and cam.alert_level_after_hours >= 3:
+                    alert_level = 3 if after_hours and cam.alert_level_after_hours >= 3 else 2
+                    completed = enrich_canonical_event(
+                        completed,
+                        camera_id=cam.id,
+                        zone=cam.zone,
+                        sector=cam.sector,
+                        alert_level=alert_level,
+                        photo_path=snap,
+                        retention_days=app_config.DATA_RETENTION_DAYS,
+                    )
+                    event_logger.log_event(completed)
+                    _dispatch_event_triggers(
+                        completed,
+                        trigger_manager,
+                        report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                        pdf_cfg=loader.get_section("pdf_report", {}),
+                        auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+                    )
+                    if alert_level >= 3:
                         trigger_overlay_data = {
                             "trigger_type": "SIRENA",
                             "mqtt_topic": "vigilante/relay/horn",
@@ -633,13 +829,81 @@ def run_file(
                         current_state = "INTRUSION"
                         events_count += 1
                         snap = _save_snapshot(proc_frame, cam.id, "perimeter", snapshot_dir)
-                        breach.update({
-                            "camera_id": cam.id,
-                            "zone": cam.zone,
-                            "photo_path": snap,
-                            "event_schema_version": "2.0",
-                        })
-                        trigger_manager.handle_event(breach)
+                        after_hours = is_after_hours(schedule_cfg)
+                        alert_level = 1
+                        if after_hours:
+                            alert_level = max(2, min(3, cam.alert_level_after_hours))
+                        breach = enrich_canonical_event(
+                            breach,
+                            camera_id=cam.id,
+                            zone=cam.zone,
+                            sector=cam.sector,
+                            alert_level=alert_level,
+                            photo_path=snap,
+                            retention_days=app_config.DATA_RETENTION_DAYS,
+                        )
+                        breach["metadata"] = {
+                            **(breach.get("metadata") or {}),
+                            "after_hours": after_hours,
+                        }
+                        _dispatch_event_triggers(
+                            breach,
+                            trigger_manager,
+                            report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                            pdf_cfg=loader.get_section("pdf_report", {}),
+                            auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+                        )
+                        if alert_level >= 3:
+                            trigger_overlay_data = {
+                                "trigger_type": "SIRENA",
+                                "mqtt_topic": "vigilante/relay/horn",
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "camera_id": cam.id,
+                            }
+                            trigger_overlay_ts = time.time()
+                            LOG.info("HARDWARE TRIGGER — Perimeter nivel 3 (fuera de horario)")
+
+            elif use_m0 and zone_monitor is not None:
+                active_ids: List[str] = []
+                if bbox:
+                    h, w = proc_frame.shape[:2]
+                    hits = zone_monitor.evaluate_frame(bbox, w, h)
+                    active_ids = [hit.zone_id for hit in hits]
+                    zone_evt = zone_monitor.update(
+                        bbox,
+                        w,
+                        h,
+                        frame_idx=frame_idx,
+                        camera_id=cam.id,
+                        site_zone=cam.zone,
+                        track_id=bbox.get("track_id"),
+                    )
+                    if zone_evt:
+                        is_aqua = zone_evt.get("event_type") == "pool_occupancy"
+                        current_state = "AQUA" if (use_aqua or is_aqua) else "ZONA"
+                        events_count += 1
+                        snap = _save_snapshot(proc_frame, cam.id, zone_evt["event_type"], snapshot_dir)
+                        alert_level = int(zone_evt.get("alert_level") or (2 if is_aqua else 1))
+                        zone_evt = enrich_canonical_event(
+                            zone_evt,
+                            camera_id=cam.id,
+                            zone=cam.zone,
+                            sector=cam.sector,
+                            alert_level=alert_level,
+                            photo_path=snap,
+                            retention_days=app_config.DATA_RETENTION_DAYS,
+                        )
+                        event_logger.log_event(zone_evt)
+                        _dispatch_event_triggers(
+                            zone_evt,
+                            trigger_manager,
+                            report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                            pdf_cfg=loader.get_section("pdf_report", {}),
+                            auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+                        )
+                    elif active_ids:
+                        current_state = "AQUA" if use_aqua else "ZONA"
+                draw_zones(proc_frame, zone_monitor.zones, active_zone_ids=active_ids)
 
             # ── Indexación ─────────────────────────────────────────────────
             if indexer and detections_this_frame:
@@ -701,7 +965,22 @@ def run_file(
         reader.close()
         final_ev = event_logger.finalize()
         if final_ev:
+            final_ev = enrich_canonical_event(
+                final_ev,
+                camera_id=cam.id,
+                zone=cam.zone,
+                sector=cam.sector,
+                alert_level=2,
+                retention_days=app_config.DATA_RETENTION_DAYS,
+            )
             event_logger.log_event(final_ev)
+            _dispatch_event_triggers(
+                final_ev,
+                trigger_manager,
+                report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                pdf_cfg=loader.get_section("pdf_report", {}),
+                auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+            )
         if indexer:
             stats = indexer.get_stats()
             LOG.info("Metadatos indexados: %s", stats)

@@ -213,10 +213,10 @@ Precisión: 85-90%, Falsos +: 5-10%
 **Cliente configura:**
 ```powershell
 # Windows
-setx GOOGLE_APPLICATION_CREDENTIALS "C:\AppData\...\alertas1-service.json"
+setx GOOGLE_APPLICATION_CREDENTIALS "C:\secrets\firebase-service-account.json"
 
 # Linux
-export GOOGLE_APPLICATION_CREDENTIALS="/etc/alertas1-service.json"
+export GOOGLE_APPLICATION_CREDENTIALS="/etc/firebase-service-account.json"
 
 # Docker
 docker run -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/key.json -v /host/key.json:/secrets/key.json ...

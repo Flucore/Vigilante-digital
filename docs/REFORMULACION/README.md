@@ -9,7 +9,7 @@
 | Glosario | [../../GLOSARIO.md](../../GLOSARIO.md) |
 | Índice código | [../../CODE_INDEX.md](../../CODE_INDEX.md) |
 | Plan maestro | [../../MASTER_DEVELOPMENT_PLAN.md](../../MASTER_DEVELOPMENT_PLAN.md) |
-| Siguiente | **TRACK_COMERCIAL · C1** |
+| Siguiente | **TRACK_COMERCIAL · C5** |
 
 ## Orden de lectura
 
@@ -32,10 +32,11 @@
 | [07_PROYECTO_TITULO.md](07_PROYECTO_TITULO.md) | Done |
 | [08_BACKLOG_HUMANOS_IA.md](08_BACKLOG_HUMANOS_IA.md) | Done |
 | [09_REGISTRO_RIESGOS_Y_DEUDA.md](09_REGISTRO_RIESGOS_Y_DEUDA.md) | Done |
+| [PROTOCOLO_GITHUB.md](../PROTOCOLO_GITHUB.md) | Colaboración Flucore (sin secretos) |
 
 ## Arranque código
 
 ```text
-TRACK=COMERCIAL · C1
-Lee DESARROLLO_EJECUTABLE.md §3 C1 y ejecuta solo esa unidad.
+TRACK=COMERCIAL · C5
+Lee DESARROLLO_EJECUTABLE.md §3 C5 y ejecuta solo esa unidad.
 ```

@@ -25,7 +25,7 @@ Estado: abierto | mitigando | aceptado | cerrado.
 | R06 | FAR alto tumba confianza del piloto | A | abierto | Medir FAR; M0+HITL; no SLA numérico prematuro |
 | R07 | Datos de menores (piscina) sin base legal | A | abierto | Protocolo legal antes de dataset; cartelería |
 | R08 | Mezcla multi-tenant en train | A | abierto | Tenant isolation; prohibido modelo global sin opt-in |
-| R09 | Violación capas (`trigger`→`inputs`) | M | abierto | Fix en C3 |
+| R09 | Violación capas (`trigger`→`inputs`) | M | **cerrado** | Fix C3: `outputs/http_speaker.py` |
 | R10 | Capacidad FluCore (WIP) vs 2 tracks | M | abierto | 1 F1 activo; F2 en bloques |
 | R11 | main.py legado confunde agentes | B | mitigando | AI_CONTEXT + CODE_INDEX: runner canónico |
 | R12 | Guerrilla en seguridad crítica | A | cerrado* | Selector: excluido (*mantener disciplina) |
@@ -38,10 +38,10 @@ Estado: abierto | mitigando | aceptado | cerrado.
 |---|---|---|---|
 | D01 | Heurísticas rígidas | Comercial | C1–C4 |
 | D02 | main.py legado | Docs/cleanup | Nota; no prioritario |
-| D03 | TriggerManager importa inputs | Comercial | C3 |
+| D03 | TriggerManager importa inputs | Comercial | **C3 Done** |
 | D04 | EventLogger fall-centric / schema | Comercial | C2 |
 | D05 | Sin M0 máscara irregular | Comercial | **C1** |
-| D06 | Módulos core poco cableados | Comercial | C1, C4 |
+| D06 | Módulos core poco cableados | Comercial | C1, **C4 Done** (aqua) |
 | D07 | Sin curiosidad/gold-set/promote | Académico | A1–A4 |
 | D08 | GPU/backpressure multi-cam | Ambos | C5 |
 | D09 | Docs raíz desalineadas | DOCS | **Mitigado** por REFORMULACION |

@@ -403,7 +403,7 @@ python scripts/cleanup_firestore.py --count
 - Docstrings detallados
 
 ❌ **NO hacer:**
-- Guardar `alertas1-key.json` en Git
+- Guardar `firebase-service-account.json` en Git
 - Hardcodear credenciales en config.py
 - Usar `json.dump()` sin atomic writes
 - Ignorar variables de entorno

@@ -282,7 +282,7 @@ Deberías ver tu archivo MP4.
 ### Paso 2: Configurar credenciales Firebase (sesión actual)
 
 ```powershell
-$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\secrets\alertas1-service.json"
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\secrets\firebase-service-account.json"
 ```
 
 ### Paso 3: Ejecutar el script de pruebas
@@ -320,7 +320,7 @@ cat test_outputs\test_metrics.json
 
 **Eventos en Firestore:**
 1. Ve a [Firebase Console](https://console.firebase.google.com)
-2. Selecciona proyecto `alertas1-b2c10`
+2. Selecciona proyecto `TU_PROYECTO_FIREBASE`
 3. Firestore Database → Colección `Prueba_Alertas`
 4. Verás documentos con los eventos detectados
 
@@ -396,7 +396,7 @@ Solución: Verifica que:
 
 ```
 Solución:
-$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\ruta\correcta\alertas1-service.json"
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\ruta\correcta\firebase-service-account.json"
 ```
 
 ### FPS muy bajo (< 10)
@@ -413,7 +413,7 @@ Soluciones:
 ```
 Verificar:
 1. ¿La variable GOOGLE_APPLICATION_CREDENTIALS está configurada?
-2. ¿El JSON corresponde al proyecto alertas1-b2c10?
+2. ¿El JSON corresponde al proyecto TU_PROYECTO_FIREBASE?
 3. ¿Firestore tiene la colección "Prueba_Alertas" creada?
 4. ¿Hay errores en logs de console?
 ```

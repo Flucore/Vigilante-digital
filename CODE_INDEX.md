@@ -21,6 +21,7 @@ VigilanteDigital_1.0/
 │   ├── yolo_fall_detector.py   Detector de caídas YOLOv8-pose
 │   ├── pose_detector.py        Detector MediaPipe (fallback)
 │   ├── perimeter_detector.py   Línea virtual de perímetro
+│   ├── zone_geometry.py        M0: IoU bbox∩zona + ZoneOccupancyMonitor
 │   ├── color_detectors.py      HSV: RedShirtDetector, TrafficLightDetector
 │   └── learning_dataset.py     Gestión de dataset para entrenamiento
 │
@@ -37,6 +38,7 @@ VigilanteDigital_1.0/
 │   ├── forensic_db.py          Conector PostgreSQL / JSONL fallback
 │   ├── forensic_schema.sql     Esquema SQL de la BD forense
 │   ├── trigger_manager.py      Dispatcher asíncrono de triggers
+│   ├── http_speaker.py         Bocina IP vía HTTP (capa outputs; sin inputs/)
 │   ├── firebase_connector.py   Sincronización con Firestore (opcional)
 │   ├── hud_renderer.py         Overlays OpenCV sobre frames
 │   ├── report_generator.py     Generador de PDF de eventos
@@ -84,6 +86,7 @@ VigilanteDigital_1.0/
 | Inferencia | `RedShirtDetector` | `core/color_detectors.py` | Detección color rojo persistente (HSV) |
 | Inferencia | `TrafficLightDetector` | `core/color_detectors.py` | Detección cambio color en ROI (HSV) |
 | Inferencia | `PerimeterDetector` | `core/perimeter_detector.py` | Cruce de línea virtual |
+| Inferencia | `ZoneOccupancyMonitor` | `core/zone_geometry.py` | M0: IoU bbox ∩ zona + persistencia |
 | Lógica | `ConfigLoader` | `core/config_loader.py` | Config jerárquica + evaluación de horario |
 | Lógica | `is_after_hours()` | `core/config_loader.py` | Evaluar si es horario no hábil |
 | Lógica | `get_detector()` | `core/detector_factory.py` | Factory: elige mejor motor disponible |
@@ -125,10 +128,28 @@ def is_after_hours(schedule: ScheduleConfig) → bool
   timezone, work_days, start_time, end_time, holidays
 
 @dataclass ZoneConfig:
-  id, label, type, critical, points
+  id, label, type, critical, points, normalized
+  # type M0: polygon|geofence|pool|wall|coop|machine_yard|custom
 ```
 
-### `core/detector_factory.py`
+### `core/zone_geometry.py` (C1 · M0 · C4 Aqua)
+
+```python
+M0_ZONE_TYPES                    # frozenset de tipos de zona geométrica
+AQUA_ZONE_TYPES                  # frozenset({"pool"}) — módulo aqua
+
+def bbox_zone_iou(bbox, zone_points, frame_width, frame_height, *, normalized=True) -> float
+def points_to_contour(points, width, height, *, normalized=True) -> np.ndarray
+def draw_zones(frame, zones, *, active_zone_ids=None) -> np.ndarray
+
+class ZoneOccupancyMonitor(zones, *, min_iou, min_persistence_frames, cooldown_sec, allowed_types=None)
+  .evaluate_frame(bbox, w, h) -> List[ZoneHit]
+  .update(bbox, w, h, *, frame_idx, camera_id, site_zone, track_id) -> Optional[dict]
+  # evento: zone_occupancy | pool_occupancy · alert_level 1|2 · metadata.product aqua|geofence
+  # metadata.demographics=False (Aqua no clasifica edad/niño)
+```
+
+---
 
 ```python
 def get_detector(use_gpu, min_fall_frames, fall_angle_deg, mediapipe_complexity)
@@ -176,11 +197,22 @@ class FileVideoReader(source_path, loop, module_name)
 ### `outputs/event_logger.py`
 
 ```python
+EVENT_SCHEMA_VERSION = "2.0"
+
+def resolve_is_falling(bbox, *, ratio_threshold=0.75) → Tuple[bool, str]
+  # Prioriza bbox["is_falling"] del detector; fallback aspect-ratio solo si falta la clave
+
+def enrich_canonical_event(event, *, camera_id, zone, sector, alert_level, photo_path, retention_days) → dict
+  # Garantiza timestamp, event_schema_version, compliance, camera_id
+
 class EventLogger(file_path)
-  .update(is_falling, frame_idx, photo_path, metadata) → Optional[Dict]
-  .log_event(event: dict)                              → None
+  .update(is_falling, frame_idx, photo_path, metadata) → Optional[Dict]  # episodio canónico
+  .log_event(event: dict)                              → bool
   .finalize()                                          → Optional[Dict]
+  .get_events() / .clear()
 ```
+
+`runner._dispatch_event_triggers`: PDF opcional + TriggerManager en hilo daemon (no bloquea captura).
 
 ### `outputs/metadata_indexer.py`
 
@@ -217,9 +249,17 @@ class ForensicDB(db_url, jsonl_path, events_dir)
 ### `outputs/trigger_manager.py`
 
 ```python
-class TriggerManager(config: dict)
-  .handle_event(event: dict, pdf_path: Optional[str]) → None
-  .shutdown(wait: bool)                               → None
+class TriggerManager(config)
+  .handle_event(event, pdf_path=None) → None   # async, no bloquea
+  .shutdown(wait=True) → None
+# Bocina: outputs.http_speaker.activate_http_speaker (NO importa inputs/)
+# alert_level >= 3 añade ruta speaker automáticamente
+```
+
+### `outputs/http_speaker.py`
+
+```python
+def activate_http_speaker(host, *, event, volume, mp3_url, timeout_sec) → bool
 ```
 
 ### `outputs/hud_renderer.py`
@@ -276,6 +316,8 @@ Todo evento generado por cualquier módulo debe tener esta estructura:
 |---|---|---|
 | `fall` | `yolo_fall_detector` / `pose_detector` | 2 |
 | `perimeter_breach` | `perimeter_detector` | 1 |
+| `zone_occupancy` | `zone_geometry` (M0 geofence) | 2 |
+| `pool_occupancy` | `zone_geometry` (type=pool) | 2 |
 | `red_shirt_entry` | `color_detectors.RedShirtDetector` | 1 |
 | `traffic_light_change` | `color_detectors.TrafficLightDetector` | 1 |
 | `after_hours_motion` | (Sprint 3) | 3 |
@@ -298,6 +340,10 @@ Todo evento generado por cualquier módulo debe tener esta estructura:
 | `CAM_PATIO_2_URL` | URL stream cámara patio sur | `0` | En despliegue |
 | `CAM_ENTRADA_AUTOS_URL` | URL stream entrada autos | `0` | En despliegue |
 | `CAM_PERIMETRO_URL` | URL stream perímetro | `0` | En despliegue |
+| `ZONE_MIN_IOU` | IoU mínimo bbox∩zona (M0) | `0.15` | No |
+| `ZONE_MIN_PERSISTENCE_FRAMES` | Frames consecutivos para evento M0 | `8` | No |
+| `ZONE_EVENT_COOLDOWN_SEC` | Cooldown entre eventos misma zona | `5.0` | No |
+| `DATA_RETENTION_DAYS` | Retención compliance en eventos | `30` | No |
 | `CAM_PEATONAL_URL` | URL stream entrada peatonal | `0` | En despliegue |
 | `CAM_POSTE_URL` | URL stream poste general | `0` | En despliegue |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path al JSON de Firebase | — | Solo si Firebase habilitado |
@@ -374,7 +420,7 @@ runner.py / CameraWorker
 | Ruta | Clase | Activación |
 |---|---|---|
 | `email` | `EmailSender` | SMTP con PDF adjunto |
-| `speaker` | `IpSpeaker` | HTTP POST a bocina IP |
+| `speaker` | `outputs.http_speaker` | HTTP POST a bocina IP (capa outputs) |
 | `mqtt` | requests | Mensaje MQTT al relay |
 | `webhook` | requests | HTTP POST a URL configurada |
 | `whatsapp` | requests | Webhook externo (Twilio, etc.) |
@@ -443,25 +489,19 @@ SearchFilters(camera_id, object_class, color_label, date_from, date_to,
 ColorDetection(detected: bool, confidence: float, event: Optional[dict])
 ```
 
-### 10.1 Entidades conceptuales — Memoria de Sitio (aún sin módulo `.py` dedicado)
+### 10.1 Entidades Memoria de Sitio
 
-> Documentadas en `docs/REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md`.  
-> **No inventar archivos** hasta la unidad de implementación (p. ej. C1 / A1).
-
-| Entidad | Rol | Persistencia prevista |
+| Entidad | Estado | Implementación |
 |---|---|---|
-| `SiteZoneMask` | Polígono/máscara versionada por cámara (M0) | Extensión `cameras[].zones[]` / config |
-| `CuriositySample` | Evidencia encolada por motor de curiosidad | Dataset / cola HITL |
-| `TaxonomyLabel` | Subclase cliente sobre detección gruesa (M2) | Manifest / model adapter |
-| `ModelCard` | Metadatos de promote (checksum, parent, reviewer) | Registry de pesos |
-| `GoldSet` | Eval por sitio; **nunca** entra a train | Split dataset versionado |
-| `CompositeEventRecipe` | Regla nombrada → `event_type` compuesto (M3) | Config / código de reglas |
+| `SiteZoneMask` | **Parcial (C1)** | `ZoneConfig` + `core/zone_geometry.py` |
+| `CuriositySample` | Conceptual | Dataset / cola HITL (A1) |
+| `TaxonomyLabel` | Conceptual | M2 (A3) |
+| `ModelCard` / `GoldSet` | Conceptual | A2–A4 |
+| `CompositeEventRecipe` | Conceptual | A5 |
 
-**`event_type` compuestos (objetivo, no todos implementados):**  
-`intrusion_climb` · `predator_attack` · `machine_unlisted` · `zone_calibration_drift`
-
-**Campos de evento a contemplar en evoluciones de schema (sin romper 2.0):**  
-`mask_polygon`, `zone_iou`, `model_version`, `curiosity_reason`, `taxonomy_label`, `composite_event_recipe`
+**Módulo activo M0:** `geofence` o `aqua` en `modules_active`.  
+**Eventos:** `zone_occupancy`, `pool_occupancy` (si `type=pool`; Notify `alert_level=2`).
+**Aqua (C4):** `allowed_types=pool` — 0 eventos fuera de agua; sin demografía.
 
 ---
 
@@ -471,6 +511,8 @@ ColorDetection(detected: bool, confidence: float, event: Optional[dict])
 |---|---|---|
 | `fall_detection` | YoloFallDetector / PoseDetector | S0 |
 | `perimeter` | PerimeterDetector (línea virtual) | S0 |
+| `geofence` | ZoneOccupancyMonitor (M0 IoU bbox∩zona) | **C1** |
+| `aqua` | ZoneOccupancyMonitor solo `type=pool` + Notify | **C4** |
 | `red_shirt` | RedShirtDetector (HSV) | S0 |
 | `traffic_light` | TrafficLightDetector (HSV) | S0 |
 | `metadata_indexer` | MetadataIndexer (siempre activo si forensic_audit.enabled) | S1 |
