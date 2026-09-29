@@ -1,0 +1,9 @@
+﻿{
+  "python.defaultInterpreterPath": ".venv\\Scripts\\python.exe",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "ms-python.black-formatter",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"],
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true
+}

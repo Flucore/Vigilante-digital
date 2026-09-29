@@ -77,7 +77,7 @@ ENV/
 env/
 
 # IDEs
-.vscode/
+.vscode/*
 .idea/
 .cursor/*
 !.cursor/rules/
