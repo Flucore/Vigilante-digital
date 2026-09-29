@@ -1,0 +1,12 @@
+﻿# Entorno academico - deteccion de caidas
+# Versiones fijas: la comparabilidad de metricas depende de esto
+
+opencv-python==4.10.0.84
+numpy==1.26.4
+ultralytics==8.3.40
+pandas==2.2.3
+scikit-learn==1.5.2
+matplotlib==3.9.2
+
+pytest==8.3.3
+black==24.10.0

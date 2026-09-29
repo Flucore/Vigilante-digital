@@ -28,7 +28,7 @@ GOOGLE_APPLICATION_CREDENTIALS
 
 # Configuracion local y datos sensibles
 /datasets/
-/data/
+/data/*
 /captures/
 /snapshots/
 *.mp4
@@ -113,3 +113,17 @@ reports/
 *.so
 *.dylib
 *.dll
+
+# ===== Rama academica =====
+# Videos del gold-set fuera, etiquetas y resultados dentro
+!/data/labels.csv
+!/data/goldset/
+/data/goldset/*
+!/data/goldset/.gitkeep
+!/results/
+!/results/*.csv
+!/results/*.png
+!/results/*.md
+
+!/.vscode/settings.json
+!/.vscode/extensions.json
