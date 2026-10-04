@@ -626,16 +626,23 @@ def run_file(
     source: str,
     headless: bool,
     cam_id_override: Optional[str] = None,
-) -> None:
+    *,
+    dispatch_triggers: bool = True,
+    save_snapshots: bool = True,
+) -> List[Dict[str, Any]]:
     """Procesa un archivo de video MP4 con barra de progreso.
 
     Si hay múltiples cámaras en el config, usa la primera habilitada
     (o la especificada por cam_id_override) para aplicar sus módulos.
+
+    Retorna la lista de eventos generados. Con dispatch_triggers=False no se
+    disparan triggers/PDF; con save_snapshots=False no se guardan JPG.
     """
+    events: List[Dict[str, Any]] = []
     cameras = loader.get_cameras()
     if not cameras:
         LOG.error("No hay cámaras habilitadas. Revisa client_config.json.")
-        return
+        return events
 
     # Seleccionar cámara para el módulo
     cam = cameras[0]
@@ -654,6 +661,11 @@ def run_file(
     snapshot_dir = ROOT / demo_cfg.get("snapshot_dir", "test_outputs/snapshots")
     primary_module = cam.modules_active[0] if cam.modules_active else "fall_detection"
     use_m0, use_aqua = _m0_module_flags(cam.modules_active, primary_module)
+
+    def _snap(img: np.ndarray, event_type: str) -> str:
+        if not save_snapshots:
+            return ""
+        return _save_snapshot(img, cam.id, event_type, snapshot_dir)
 
     LOG.info("Modo FILE | Archivo: %s | Módulo: %s | Cámara: %s", source, primary_module, cam.id)
 
@@ -712,7 +724,7 @@ def run_file(
     reader = FileVideoReader(source, loop=False, module_name=primary_module)
     if not reader.open():
         LOG.error("No se pudo abrir el archivo: %s", source)
-        return
+        return events
 
     p_time = time.time()
     frame_idx = 0
@@ -770,7 +782,7 @@ def run_file(
                 })
                 start_snap = ""
                 if is_falling and event_logger.state == "NORMAL":
-                    start_snap = _save_snapshot(proc_frame, cam.id, "fall", snapshot_dir)
+                    start_snap = _snap(proc_frame, "fall")
                 completed = event_logger.update(
                     is_falling=is_falling,
                     frame_idx=frame_idx,
@@ -787,9 +799,7 @@ def run_file(
                 if completed:
                     current_state = "ALERTA"
                     events_count += 1
-                    snap = completed.get("photo_path") or _save_snapshot(
-                        proc_frame, cam.id, "fall", snapshot_dir
-                    )
+                    snap = completed.get("photo_path") or _snap(proc_frame, "fall")
                     after_hours = is_after_hours(schedule_cfg)
                     alert_level = 3 if after_hours and cam.alert_level_after_hours >= 3 else 2
                     completed = enrich_canonical_event(
@@ -802,13 +812,15 @@ def run_file(
                         retention_days=app_config.DATA_RETENTION_DAYS,
                     )
                     event_logger.log_event(completed)
-                    _dispatch_event_triggers(
-                        completed,
-                        trigger_manager,
-                        report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
-                        pdf_cfg=loader.get_section("pdf_report", {}),
-                        auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
-                    )
+                    events.append(completed)
+                    if dispatch_triggers:
+                        _dispatch_event_triggers(
+                            completed,
+                            trigger_manager,
+                            report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                            pdf_cfg=loader.get_section("pdf_report", {}),
+                            auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+                        )
                     if alert_level >= 3:
                         trigger_overlay_data = {
                             "trigger_type": "SIRENA",
@@ -828,7 +840,7 @@ def run_file(
                     if breach:
                         current_state = "INTRUSION"
                         events_count += 1
-                        snap = _save_snapshot(proc_frame, cam.id, "perimeter", snapshot_dir)
+                        snap = _snap(proc_frame, "perimeter")
                         after_hours = is_after_hours(schedule_cfg)
                         alert_level = 1
                         if after_hours:
@@ -846,13 +858,15 @@ def run_file(
                             **(breach.get("metadata") or {}),
                             "after_hours": after_hours,
                         }
-                        _dispatch_event_triggers(
-                            breach,
-                            trigger_manager,
-                            report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
-                            pdf_cfg=loader.get_section("pdf_report", {}),
-                            auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
-                        )
+                        events.append(breach)
+                        if dispatch_triggers:
+                            _dispatch_event_triggers(
+                                breach,
+                                trigger_manager,
+                                report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                                pdf_cfg=loader.get_section("pdf_report", {}),
+                                auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+                            )
                         if alert_level >= 3:
                             trigger_overlay_data = {
                                 "trigger_type": "SIRENA",
@@ -882,7 +896,7 @@ def run_file(
                         is_aqua = zone_evt.get("event_type") == "pool_occupancy"
                         current_state = "AQUA" if (use_aqua or is_aqua) else "ZONA"
                         events_count += 1
-                        snap = _save_snapshot(proc_frame, cam.id, zone_evt["event_type"], snapshot_dir)
+                        snap = _snap(proc_frame, zone_evt["event_type"])
                         alert_level = int(zone_evt.get("alert_level") or (2 if is_aqua else 1))
                         zone_evt = enrich_canonical_event(
                             zone_evt,
@@ -894,13 +908,15 @@ def run_file(
                             retention_days=app_config.DATA_RETENTION_DAYS,
                         )
                         event_logger.log_event(zone_evt)
-                        _dispatch_event_triggers(
-                            zone_evt,
-                            trigger_manager,
-                            report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
-                            pdf_cfg=loader.get_section("pdf_report", {}),
-                            auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
-                        )
+                        events.append(zone_evt)
+                        if dispatch_triggers:
+                            _dispatch_event_triggers(
+                                zone_evt,
+                                trigger_manager,
+                                report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                                pdf_cfg=loader.get_section("pdf_report", {}),
+                                auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+                            )
                     elif active_ids:
                         current_state = "AQUA" if use_aqua else "ZONA"
                 draw_zones(proc_frame, zone_monitor.zones, active_zone_ids=active_ids)
@@ -974,13 +990,15 @@ def run_file(
                 retention_days=app_config.DATA_RETENTION_DAYS,
             )
             event_logger.log_event(final_ev)
-            _dispatch_event_triggers(
-                final_ev,
-                trigger_manager,
-                report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
-                pdf_cfg=loader.get_section("pdf_report", {}),
-                auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
-            )
+            events.append(final_ev)
+            if dispatch_triggers:
+                _dispatch_event_triggers(
+                    final_ev,
+                    trigger_manager,
+                    report_dir=ROOT / demo_cfg.get("report_dir", "test_outputs"),
+                    pdf_cfg=loader.get_section("pdf_report", {}),
+                    auto_pdf=bool(demo_cfg.get("auto_pdf_on_event", False)),
+                )
         if indexer:
             stats = indexer.get_stats()
             LOG.info("Metadatos indexados: %s", stats)
@@ -994,11 +1012,25 @@ def run_file(
             frame_idx, events_count,
         )
 
+    return events
 
-def run_batch(loader: ConfigLoader, source: str) -> None:
+
+def run_batch(
+    loader: ConfigLoader,
+    source: str,
+    *,
+    dispatch_triggers: bool = True,
+    save_snapshots: bool = True,
+) -> None:
     """Procesa archivo(s) sin UI a máxima velocidad. Ideal para indexar video histórico."""
     LOG.info("Modo BATCH iniciado — headless, máxima velocidad.")
-    run_file(loader, source, headless=True)
+    run_file(
+        loader,
+        source,
+        headless=True,
+        dispatch_triggers=dispatch_triggers,
+        save_snapshots=save_snapshots,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1065,6 +1097,11 @@ Ejemplos:
         action="store_true",
         help="Sin ventana de visualización (útil en servidores sin GUI)",
     )
+    p.add_argument(
+        "--eval",
+        action="store_true",
+        help="Modo evaluación (file/batch): no dispara triggers ni guarda snapshots JPG",
+    )
     return p
 
 
@@ -1092,7 +1129,14 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        run_file(loader, args.source, headless=headless, cam_id_override=args.cam)
+        run_file(
+            loader,
+            args.source,
+            headless=headless,
+            cam_id_override=args.cam,
+            dispatch_triggers=not args.eval,
+            save_snapshots=not args.eval,
+        )
 
     elif args.mode == "batch":
         if not args.source:
@@ -1102,7 +1146,12 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-        run_batch(loader, args.source)
+        run_batch(
+            loader,
+            args.source,
+            dispatch_triggers=not args.eval,
+            save_snapshots=not args.eval,
+        )
 
 
 if __name__ == "__main__":
