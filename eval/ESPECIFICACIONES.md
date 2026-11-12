@@ -74,6 +74,20 @@ La evaluación corre tres brazos:
 `pose_v1` frente a `bbox` mide lo que aportan los puntos clave;
 `pose_v8` frente a `pose_v1` mide lo que aporta la ventana temporal.
 
+### Barrido de ventanas
+
+`--ventanas N1,N2,...` (por ejemplo `--ventanas 1,2,3,4,5,6,8,10`) corre
+`bbox` una sola vez y un brazo `pose_vN` por cada valor. Cada brazo es
+una fila de `resumen.csv` y la tabla por pantalla pasa a tener una fila
+por brazo. Sin el parámetro se corren los tres brazos de la tabla
+anterior (equivale a `--ventanas 1,8`). Los valores deben ser enteros
+>= 1 y sin repetidos.
+
+Si la ventana se elige mirando el barrido, esa elección se hizo con los
+mismos clips que se usan para medir. Las métricas del valor elegido
+quedan optimistas: hay que informarlas como exploratorias o confirmarlas
+sobre clips que no participaron en la elección.
+
 ## 3. Formato de etiquetas
 
 Archivo `data/labels.csv`, codificación UTF-8:

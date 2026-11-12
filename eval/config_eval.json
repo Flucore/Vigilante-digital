@@ -11,7 +11,7 @@
     "holidays": []
   },
   "detection": {
-    "use_gpu": true,
+    "use_gpu": false,
     "min_fall_frames": 8,
     "fall_angle_threshold_deg": 55.0
   },
