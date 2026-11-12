@@ -1,0 +1,9 @@
+{
+  "evento_id": "EV-2026-0412",
+  "camara": "CAM_PASILLO_B",
+  "zona": "Pasillo ala B",
+  "hora_local": "2026-11-12T03:14:00-03:00",
+  "duracion_s": 47.2,
+  "se_levanto": false,
+  "senal": "detector"
+}

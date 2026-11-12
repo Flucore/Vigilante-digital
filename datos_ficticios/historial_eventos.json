@@ -1,0 +1,50 @@
+[
+  {
+    "evento_id": "EV-2026-0371",
+    "camara": "CAM_PASILLO_B",
+    "zona": "Pasillo ala B",
+    "hora_local": "2026-10-28T16:22:00-03:00",
+    "duracion_s": 12.4,
+    "via": "reporte_rutina"
+  },
+  {
+    "evento_id": "EV-2026-0389",
+    "camara": "CAM_SALA_COMUN",
+    "zona": "Sala común",
+    "hora_local": "2026-11-04T11:05:00-03:00",
+    "duracion_s": 3.2,
+    "via": "probable_falso_positivo"
+  },
+  {
+    "evento_id": "EV-2026-0397",
+    "camara": "CAM_PASILLO_B",
+    "zona": "Pasillo ala B",
+    "hora_local": "2026-11-07T22:05:00-03:00",
+    "duracion_s": 9.8,
+    "via": "reporte_rutina"
+  },
+  {
+    "evento_id": "EV-2026-0403",
+    "camara": "CAM_COMEDOR",
+    "zona": "Comedor",
+    "hora_local": "2026-11-09T13:40:00-03:00",
+    "duracion_s": 25.1,
+    "via": "escalamiento_inmediato"
+  },
+  {
+    "evento_id": "EV-2026-0408",
+    "camara": "CAM_PASILLO_B",
+    "zona": "Pasillo ala B",
+    "hora_local": "2026-11-10T05:40:00-03:00",
+    "duracion_s": 14.0,
+    "via": "reporte_rutina"
+  },
+  {
+    "evento_id": "EV-2026-0410",
+    "camara": "CAM_PASILLO_C",
+    "zona": "Pasillo ala C",
+    "hora_local": "2026-11-11T09:12:00-03:00",
+    "duracion_s": 4.1,
+    "via": "probable_falso_positivo"
+  }
+]

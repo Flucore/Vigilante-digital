@@ -1,0 +1,16 @@
+{
+  "politica": {
+    "duracion_escalamiento_s": 20,
+    "duracion_falso_positivo_s": 5,
+    "turno_riesgo": "noche",
+    "max_funcionarios_turno_riesgo": 1,
+    "incidentes_escalamiento": 3
+  },
+  "historial_dias": 7,
+  "topes": {
+    "max_llamadas_modelo": 5,
+    "max_pasos": 8,
+    "timeout_s": 60
+  },
+  "dir_traza": "salida/traza"
+}

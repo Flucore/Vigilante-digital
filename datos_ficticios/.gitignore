@@ -1,0 +1,2 @@
+# El .gitignore raíz excluye *.json; estos son datos ficticios versionables.
+!*.json

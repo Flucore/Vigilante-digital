@@ -1,0 +1,9 @@
+{
+  "evento_id": "EV-2026-0414",
+  "camara": "CAM_SALA_TERAPIA",
+  "zona": "Sala de terapia",
+  "hora_local": "2026-11-12T01:30:00-03:00",
+  "duracion_s": 12.0,
+  "se_levanto": false,
+  "senal": "detector"
+}
