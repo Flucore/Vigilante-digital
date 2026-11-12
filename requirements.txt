@@ -8,7 +8,19 @@ numpy>=1.24.0
 mediapipe>=0.10.0
 
 # Motor de detección YOLOv8 (recomendado para demo con GPU)
+# torch explícito para que el experimento sea reproducible: es la versión
+# con la que se mide en .venv. "==2.14.0" acepta tanto la build +cpu como
+# una build CUDA (+cuXXX) de la misma versión.
+torch==2.14.0
 ultralytics>=8.0.0
+
+# API forense y panel de operador (api/)
+fastapi>=0.110.0
+uvicorn>=0.29.0
+slowapi>=0.1.9
+
+# Índice forense en PostgreSQL (outputs/forensic_db.py)
+psycopg2-binary>=2.9.9
 
 # Red y notificaciones
 requests>=2.31.0

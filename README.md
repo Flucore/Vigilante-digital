@@ -8,7 +8,7 @@ Sistema edge de visión: **criterio de sitio**, no solo “cámaras con IA”.
 |---|---|
 | Repo | [Flucore/Vigilante-digital](https://github.com/Flucore/Vigilante-digital) |
 | Versión documental | 3.0 · 2026-08-16 |
-| Orquestador | `runner.py` (`main.py` = legado) |
+| Punto de entrada | `runner.py` |
 | Track / avance | **C0–C4 Done** · siguiente **C5** (empaque Docker) |
 | Protocolo equipo | [docs/PROTOCOLO_GITHUB.md](docs/PROTOCOLO_GITHUB.md) |
 
@@ -54,8 +54,8 @@ Detalle vivo: `AI_CONTEXT.md` §6 y `DESARROLLO_EJECUTABLE.md` §1.
 ```powershell
 git clone https://github.com/Flucore/Vigilante-digital.git
 cd Vigilante-digital
-python -m venv venv
-.\venv\Scripts\activate
+py -3.12 -m venv .venv          # Python 3.12: PyTorch no es compatible con 3.13+
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
 # Completar placeholders locales — NUNCA subir .env ni client_config.json real
@@ -64,6 +64,50 @@ python runner.py --mode file --source TU_VIDEO.mp4
 ```
 
 Firebase y email son **opcionales**. Ver `.env.example` y [docs/PROTOCOLO_GITHUB.md](docs/PROTOCOLO_GITHUB.md) §3.
+
+---
+
+## Uso de `runner.py`
+
+```text
+python runner.py --mode {realtime,file,batch} [--config RUTA] [--source VIDEO]
+                 [--cam ID] [--headless] [--eval]
+                 [--modulo {fall_detection,perimeter,geofence,aqua}]
+                 [--metodo {bbox,pose}] [--ventana N]
+```
+
+| Parámetro | Qué hace | Default |
+|---|---|---|
+| `--mode` | `realtime` (cámaras del config), `file` (un video con ventana) o `batch` (sin ventana, máxima velocidad) | `realtime` |
+| `--config` | JSON de configuración del cliente | `client_config.json` |
+| `--source` | Archivo de video; obligatorio en `file` y `batch` | — |
+| `--cam` | ID de la cámara del config cuyos módulos se aplican (`file`) | primera habilitada |
+| `--headless` | Sin ventana de visualización | desactivado |
+| `--eval` | No dispara triggers ni guarda snapshots JPG | desactivado |
+| `--modulo` | Módulo a ejecutar; reemplaza `modules_active` de la cámara | el del config |
+| `--metodo` | Criterio de caída: `bbox` = proporción de la caja, instantáneo; `pose` = criterio de pose con confirmación temporal | `pose` |
+| `--ventana` | Frames consecutivos que exige `pose` para confirmar la caída | `detection.min_fall_frames` del config (8) |
+
+`--modulo`, `--metodo` y `--ventana` solo aplican en los modos `file` y `batch`.
+`--metodo` y `--ventana` solo tienen efecto con el módulo `fall_detection`.
+
+Ejemplos:
+
+```powershell
+# Video con ventana, configuración por defecto
+python runner.py --mode file --source TU_VIDEO.mp4
+
+# Brazo de referencia del experimento: criterio geométrico instantáneo
+python runner.py --mode batch --source TU_VIDEO.mp4 --eval --modulo fall_detection --metodo bbox
+
+# Brazo pose con ventana de 8 frames
+python runner.py --mode batch --source TU_VIDEO.mp4 --eval --modulo fall_detection --metodo pose --ventana 8
+
+# Cámaras en vivo definidas en el config
+python runner.py --mode realtime --config client_config.json
+```
+
+Los eventos de `file` y `batch` quedan en `outputs/events_<cam_id>.jsonl`.
 
 ---
 

@@ -61,37 +61,47 @@ Write-Host "Credenciales: $env:GOOGLE_APPLICATION_CREDENTIALS"
 Write-Host "EventLogger: $env:USE_EVENT_LOGGER"
 ```
 
-### Paso 4: Ejecutar script de pruebas (v2.0 con EventLogger)
+### Paso 4: Procesar el video con `runner.py`
+
+El punto de entrada es `runner.py`. Requiere un `client_config.json`
+(copiar desde `client_config.example.json`).
 
 ```powershell
 # Desde la carpeta raíz del proyecto
-python scripts/run_test.py --video tests/test_videos/fall_sample_01.mp4 --output test_outputs
+python runner.py --mode file --source tests/test_videos/fall_sample_01.mp4
 ```
 
-**Salida esperada en v2.0:**
+Parámetros para elegir qué se ejecuta (solo en modos `file` y `batch`):
+
+| Parámetro | Valores | Default |
+|---|---|---|
+| `--modulo` | `fall_detection`, `perimeter`, `geofence`, `aqua` | el del config |
+| `--metodo` | `bbox` (proporción de la caja, instantáneo) o `pose` (pose con confirmación temporal) | `pose` |
+| `--ventana N` | frames consecutivos que exige `pose` para confirmar la caída | `detection.min_fall_frames` del config (8) |
+
+`--metodo` y `--ventana` solo tienen efecto con `fall_detection`.
+
+```powershell
+# Criterio geométrico instantáneo (referencia), sin triggers ni snapshots
+python runner.py --mode batch --source tests/test_videos/fall_sample_01.mp4 --eval --modulo fall_detection --metodo bbox
+
+# Criterio pose con ventana de 8 frames
+python runner.py --mode batch --source tests/test_videos/fall_sample_01.mp4 --eval --modulo fall_detection --metodo pose --ventana 8
 ```
-INFO - EventLogger mode enabled
-INFO - Processing video: 5400 frames
+
+Al iniciar, el log confirma la configuración efectiva:
+
+```
+Modo FILE | Archivo: ... | Módulo: fall_detection | Cámara: ... | Método: pose | Ventana: 8
 ...
-RESUMEN DE PRUEBA
-================================================================
-Total de frames: 5400
-Caídas detectadas: 5330
-Eventos completados: 2          ← v2.0: Agregación de eventos
-Reducción de datos: 99.96%      ← v2.0: Métrica de mejora
-Eventos subidos a Firebase: 2
-Estado: ✓ EXITOSO
-================================================================
+Procesamiento finalizado | frames=... | eventos=...
 ```
 
 ### Paso 5: Ver resultados
 
 ```powershell
-# Métricas locales:
-cat test_outputs\test_metrics.json
-
-# Eventos locales (JSON):
-cat test_outputs\events_log.json  # v2.0: archivo nuevo con eventos agregados
+# Eventos locales (JSONL, uno por línea):
+cat outputs\events_<cam_id>.jsonl
 
 # Eventos en Firestore:
 # Ve a https://console.firebase.google.com
@@ -126,7 +136,7 @@ python scripts/cleanup_firestore.py --delete --force
 
 | Archivo | Propósito | Estado |
 |---------|-----------|--------|
-| `main.py` | Orquestador principal | ✓ Refactorizado |
+| `runner.py` | Punto de entrada (modos realtime / file / batch) | ✓ Vigente |
 | `core/pose_detector.py` | Detección con MediaPipe | ✓ Optimizado |
 | `outputs/json_logger.py` | Log local de eventos | ✓ Nuevo |
 | `outputs/firebase_connector.py` | Sync a Firestore | ✓ Nuevo |
@@ -153,6 +163,11 @@ python scripts/cleanup_firestore.py --delete --force
 ---
 
 ## 🔍 FLUJO DE PRUEBAS
+
+> **Nota:** esta sección describe el flujo anterior con `scripts/run_test.py`
+> (MediaPipe, `JSONLogger`, `test_metrics.json`). El punto de entrada vigente
+> es `runner.py`; ver el Paso 4 de esta guía y la sección "Uso de `runner.py`"
+> del README.
 
 ```
 1. run_test.py inicia
@@ -266,7 +281,7 @@ Integración con el pipeline
 - Puedes suscribir los callbacks para que, por ejemplo, cuando el ESP32
    envíe una alarma física, el sistema muestre una alerta en pantalla o
    reproduzca un sonido vía `IpSpeaker`.
-- Si quieres, integro un demo en `main.py` o en un script `scripts/run_with_devices.py`.
+- Hay un demo de integración en `scripts/run_with_devices.py`.
 
 **Qué significan:**
 - **Total de frames:** Cantidad de imágenes procesadas
@@ -310,12 +325,9 @@ Test-Path $env:GOOGLE_APPLICATION_CREDENTIALS
 ```
 
 ### "FPS muy bajo (< 10)"
-```python
-# Edita main.py o run_test.py:
-PoseDetector(complexity=0, frame_scale=0.5)  # Más ligero
-
-# O reduce resolución en display:
-frame_show = cv2.resize(proc_frame, (960, 540))
+```powershell
+# Procesar sin ventana y a máxima velocidad:
+python runner.py --mode batch --source tests/test_videos/fall_sample_01.mp4 --headless
 ```
 
 ---
@@ -413,11 +425,15 @@ cd C:\ruta\a\VigilanteDigital
 # Instalar/actualizar dependencias
 pip install -r requirements.txt
 
-# Ejecutar prueba
-python scripts/run_test.py --video tests/test_videos/fall_sample_01.mp4 --output test_outputs
+# Procesar un video
+python runner.py --mode file --source tests/test_videos/fall_sample_01.mp4
 
-# Ver métricas
-cat test_outputs\test_metrics.json
+# Comparar criterios de caída
+python runner.py --mode batch --source tests/test_videos/fall_sample_01.mp4 --eval --modulo fall_detection --metodo bbox
+python runner.py --mode batch --source tests/test_videos/fall_sample_01.mp4 --eval --modulo fall_detection --metodo pose --ventana 8
+
+# Ver eventos
+cat outputs\events_<cam_id>.jsonl
 
 # Ver documentación
 cat ANALYSIS.md
