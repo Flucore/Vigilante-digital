@@ -85,6 +85,11 @@ def enrich_canonical_event(
     return out
 
 
+def _video_time_s(frame_idx: int, fps: float) -> float:
+    """Tiempo de video del frame. frame_idx es 1-based: el primer frame es 0.0 s."""
+    return (frame_idx - 1) / fps
+
+
 def _build_fall_episode(
     *,
     start_time: datetime,
@@ -94,11 +99,21 @@ def _build_fall_episode(
     photo_start: Optional[str],
     metadata: Optional[Dict[str, Any]],
     finalized_forced: bool = False,
+    fps: Optional[float] = None,
 ) -> Dict[str, Any]:
+    # start_time / end_time (reloj del sistema) quedan como hora operativa.
     duration = (end_time - start_time).total_seconds()
     total_frames = None
     if start_frame is not None and end_frame is not None:
         total_frames = max(0, end_frame - start_frame)
+    video_fields: Dict[str, Any] = {}
+    if fps and start_frame is not None:
+        video_fields["fps"] = fps
+        video_fields["inicio_video_s"] = _video_time_s(start_frame, fps)
+        video_fields["fin_video_s"] = None
+        if end_frame is not None:
+            video_fields["fin_video_s"] = _video_time_s(end_frame, fps)
+            duration = (end_frame - start_frame + 1) / fps
     event: Dict[str, Any] = {
         "event_type": "fall",
         "event_schema_version": EVENT_SCHEMA_VERSION,
@@ -118,6 +133,7 @@ def _build_fall_episode(
         },
         "pdf_path": None,
     }
+    event.update(video_fields)
     if finalized_forced:
         event["finalized_forced"] = True
     return event
@@ -133,7 +149,13 @@ class EventLogger:
     Cuando transiciona de FALLING → NORMAL, emite un evento completado.
     """
 
-    def __init__(self, file_path: Optional[Union[str, Path]] = None) -> None:
+    def __init__(
+        self,
+        file_path: Optional[Union[str, Path]] = None,
+        fps: Optional[float] = None,
+    ) -> None:
+        # Con fps, los eventos llevan tiempos de video (frame / fps). Sin fps: como antes.
+        self.fps: Optional[float] = fps
         env_path = os.getenv("EVENT_LOG_PATH")
         self.path: Path = Path(file_path or env_path or "events_log.jsonl")
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -175,6 +197,7 @@ class EventLogger:
                         end_frame=frame_idx - 1,
                         photo_start=self.fall_photo_path,
                         metadata=self.fall_metadata,
+                        fps=self.fps,
                     )
                     logger.info(
                         "[FALL_ENDED] Caída finalizada. Duración: %.2fs",
@@ -247,8 +270,11 @@ class EventLogger:
         with self._lock:
             self._write_history([])
 
-    def finalize(self) -> Optional[Dict[str, Any]]:
-        """Fuerza cierre de un evento en progreso (p. ej. fin de archivo)."""
+    def finalize(self, last_frame_idx: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """Fuerza cierre de un evento en progreso (p. ej. fin de archivo).
+
+        last_frame_idx: último frame procesado; si se entrega, el evento queda con end_frame.
+        """
         with self._lock:
             if self.state != "FALLING":
                 return None
@@ -262,10 +288,11 @@ class EventLogger:
                 start_time=self.fall_start_time,
                 end_time=now,
                 start_frame=self.fall_start_frame,
-                end_frame=None,
+                end_frame=last_frame_idx,
                 photo_start=self.fall_photo_path,
                 metadata=self.fall_metadata,
                 finalized_forced=True,
+                fps=self.fps,
             )
 
             self.state = "NORMAL"

@@ -64,6 +64,7 @@ class FileVideoReader:
         self._total_frames: int = 0
         self._current_frame: int = 0
         self._fps: float = 25.0
+        self._reported_fps: float = 0.0
         self._width: int = 0
         self._height: int = 0
 
@@ -82,6 +83,7 @@ class FileVideoReader:
         if self._opened:
             self._total_frames = int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
             raw_fps = self._cap.get(cv2.CAP_PROP_FPS)
+            self._reported_fps = float(raw_fps) if raw_fps > 0 else 0.0
             self._fps = raw_fps if raw_fps > 0 else 25.0
             self._width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             self._height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -156,6 +158,11 @@ class FileVideoReader:
     def fps(self) -> float:
         """FPS del archivo de origen."""
         return self._fps
+
+    @property
+    def reported_fps(self) -> float:
+        """FPS tal como lo reporta el archivo; 0.0 si el video no lo informa."""
+        return self._reported_fps
 
     @property
     def progress_ratio(self) -> float:

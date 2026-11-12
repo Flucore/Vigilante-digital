@@ -629,6 +629,9 @@ def run_file(
     *,
     dispatch_triggers: bool = True,
     save_snapshots: bool = True,
+    metodo: str = "pose",
+    ventana: Optional[int] = None,
+    modulo: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Procesa un archivo de video MP4 con barra de progreso.
 
@@ -637,7 +640,18 @@ def run_file(
 
     Retorna la lista de eventos generados. Con dispatch_triggers=False no se
     disparan triggers/PDF; con save_snapshots=False no se guardan JPG.
+
+    metodo (fall_detection): "pose" usa el criterio de YoloFallDetector con
+    ventana temporal; "bbox" usa solo la proporción alto/ancho de la caja
+    (resolve_is_falling), instantánea. Mismo detector y frames en ambos.
+
+    ventana: frames consecutivos que exige el criterio pose para confirmar la
+    caída. None → detection.min_fall_frames del config (default 8).
+
+    modulo: si se entrega, reemplaza los modules_active de la cámara del config.
     """
+    if metodo not in ("bbox", "pose"):
+        raise ValueError(f"metodo desconocido: {metodo!r} (válidos: bbox | pose)")
     events: List[Dict[str, Any]] = []
     cameras = loader.get_cameras()
     if not cameras:
@@ -659,15 +673,30 @@ def run_file(
     forensic_cfg = loader.get_section("forensic_audit", {})
 
     snapshot_dir = ROOT / demo_cfg.get("snapshot_dir", "test_outputs/snapshots")
-    primary_module = cam.modules_active[0] if cam.modules_active else "fall_detection"
-    use_m0, use_aqua = _m0_module_flags(cam.modules_active, primary_module)
+    # --modulo reemplaza los modules_active de la cámara elegida (solo esta corrida).
+    modules = [modulo] if modulo else cam.modules_active
+    primary_module = modules[0] if modules else "fall_detection"
+    use_m0, use_aqua = _m0_module_flags(modules, primary_module)
 
     def _snap(img: np.ndarray, event_type: str) -> str:
         if not save_snapshots:
             return ""
         return _save_snapshot(img, cam.id, event_type, snapshot_dir)
 
-    LOG.info("Modo FILE | Archivo: %s | Módulo: %s | Cámara: %s", source, primary_module, cam.id)
+    if primary_module != "fall_detection" and (metodo != "pose" or ventana is not None):
+        LOG.warning(
+            "Módulo activo '%s': --metodo/--ventana solo aplican a fall_detection y no tienen efecto.",
+            primary_module,
+        )
+    if ventana is None:
+        ventana = int(det_cfg.get("min_fall_frames", 8))
+    if ventana < 1:
+        raise ValueError(f"ventana debe ser >= 1 (recibido: {ventana})")
+
+    LOG.info(
+        "Modo FILE | Archivo: %s | Módulo: %s | Cámara: %s | Método: %s | Ventana: %d",
+        source, primary_module, cam.id, metodo, ventana,
+    )
 
     # Crear detector
     detector = None
@@ -675,7 +704,7 @@ def run_file(
     try:
         detector = get_detector(
             use_gpu=det_cfg.get("use_gpu", True),
-            min_fall_frames=det_cfg.get("min_fall_frames", 8),
+            min_fall_frames=ventana,
             fall_angle_deg=det_cfg.get("fall_angle_threshold_deg", 55.0),
         )
         engine_info = detector_info(detector)
@@ -718,13 +747,19 @@ def run_file(
             index_every_n_frames=int(forensic_cfg.get("index_every_n_frames", 5)),
         )
 
-    event_logger = EventLogger(ROOT / "outputs" / f"events_{cam.id}.jsonl")
     trigger_manager = TriggerManager(loader.get_section("triggers", {}))
 
     reader = FileVideoReader(source, loop=False, module_name=primary_module)
     if not reader.open():
         LOG.error("No se pudo abrir el archivo: %s", source)
         return events
+
+    # Tiempos de eventos = tiempo de video (frame / fps), no reloj del sistema.
+    video_fps = reader.reported_fps
+    if video_fps <= 0:
+        video_fps = 30.0
+        LOG.warning("El video no reporta fps: %s — se usa 30 para los tiempos de eventos.", source)
+    event_logger = EventLogger(ROOT / "outputs" / f"events_{cam.id}.jsonl", fps=video_fps)
 
     p_time = time.time()
     frame_idx = 0
@@ -770,6 +805,9 @@ def run_file(
                 except Exception:
                     LOG.exception("Error en detección frame %d", frame_idx)
                     bbox = {}
+                if metodo == "bbox" and bbox:
+                    # Sin la decisión del detector, resolve_is_falling usa solo alto/ancho.
+                    bbox = {k: v for k, v in bbox.items() if k != "is_falling"}
 
             # ── Lógica ─────────────────────────────────────────────────────
             if primary_module == "fall_detection" and bbox:
@@ -794,6 +832,8 @@ def run_file(
                         },
                         "cam_id": cam.id,
                         "fall_signal": fall_source,
+                        "metodo": metodo,
+                        "ventana": ventana,
                     },
                 )
                 if completed:
@@ -979,7 +1019,7 @@ def run_file(
         LOG.info("Interrupción de teclado.")
     finally:
         reader.close()
-        final_ev = event_logger.finalize()
+        final_ev = event_logger.finalize(last_frame_idx=frame_idx)
         if final_ev:
             final_ev = enrich_canonical_event(
                 final_ev,
@@ -1021,6 +1061,9 @@ def run_batch(
     *,
     dispatch_triggers: bool = True,
     save_snapshots: bool = True,
+    metodo: str = "pose",
+    ventana: Optional[int] = None,
+    modulo: Optional[str] = None,
 ) -> None:
     """Procesa archivo(s) sin UI a máxima velocidad. Ideal para indexar video histórico."""
     LOG.info("Modo BATCH iniciado — headless, máxima velocidad.")
@@ -1030,6 +1073,9 @@ def run_batch(
         headless=True,
         dispatch_triggers=dispatch_triggers,
         save_snapshots=save_snapshots,
+        metodo=metodo,
+        ventana=ventana,
+        modulo=modulo,
     )
 
 
@@ -1102,6 +1148,28 @@ Ejemplos:
         action="store_true",
         help="Modo evaluación (file/batch): no dispara triggers ni guarda snapshots JPG",
     )
+    p.add_argument(
+        "--metodo",
+        choices=["bbox", "pose"],
+        default="pose",
+        help="Criterio de caída (file/batch): bbox = solo proporción de la caja, "
+             "instantáneo; pose = criterio de pose + ventana de --ventana frames (default: pose)",
+    )
+    p.add_argument(
+        "--ventana",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Frames consecutivos que exige el criterio pose para confirmar caída "
+             "(file/batch; default: detection.min_fall_frames del config, 8)",
+    )
+    p.add_argument(
+        "--modulo",
+        choices=["fall_detection", "perimeter", "geofence", "aqua"],
+        default=None,
+        help="Módulo a ejecutar (file/batch); reemplaza modules_active de la cámara "
+             "del config (default: el del config)",
+    )
     return p
 
 
@@ -1136,6 +1204,9 @@ def main() -> None:
             cam_id_override=args.cam,
             dispatch_triggers=not args.eval,
             save_snapshots=not args.eval,
+            metodo=args.metodo,
+            ventana=args.ventana,
+            modulo=args.modulo,
         )
 
     elif args.mode == "batch":
@@ -1151,6 +1222,9 @@ def main() -> None:
             args.source,
             dispatch_triggers=not args.eval,
             save_snapshots=not args.eval,
+            metodo=args.metodo,
+            ventana=args.ventana,
+            modulo=args.modulo,
         )
 
 

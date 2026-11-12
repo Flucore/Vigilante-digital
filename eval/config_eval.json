@@ -1,0 +1,40 @@
+{
+  "_schema_version": "2.0",
+  "_client_id": "eval_caidas",
+  "_client_name": "Evaluacion deteccion de caidas",
+  "_comment": "Config fija del experimento (eval/ESPECIFICACIONES.md). Sin secretos. Una camara en fall_detection, sin triggers ni indexacion.",
+  "schedule": {
+    "timezone": "America/Santiago",
+    "work_days": [0, 1, 2, 3, 4, 5, 6],
+    "start_time": "00:00",
+    "end_time": "23:59",
+    "holidays": []
+  },
+  "detection": {
+    "use_gpu": true,
+    "min_fall_frames": 8,
+    "fall_angle_threshold_deg": 55.0
+  },
+  "demo": {
+    "snapshot_dir": "test_outputs/snapshots"
+  },
+  "triggers": {
+    "enabled": false
+  },
+  "forensic_audit": {
+    "enabled": false
+  },
+  "cameras": [
+    {
+      "id": "CAM_EVAL",
+      "name": "Clip de evaluacion",
+      "stream_url": "",
+      "zone": "goldset",
+      "sector": "eval",
+      "enabled": true,
+      "modules_active": ["fall_detection"],
+      "alert_level_after_hours": 2,
+      "zones": []
+    }
+  ]
+}

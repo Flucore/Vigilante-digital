@@ -5,6 +5,7 @@
 !demo_config.json
 !client_config.example.json
 !client_config.*.example.json
+!eval/config_eval.json
 .env
 .env.*
 !.env.example
