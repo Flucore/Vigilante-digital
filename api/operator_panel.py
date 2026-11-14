@@ -157,6 +157,12 @@ _state = _OperatorState()
 _FPS_WINDOW_SEC = 1.0
 _FPS_STALE_SEC = 2.0
 
+# Segundos que una alerta se considera activa (borde rojo de la tarjeta).
+_ALERT_ACTIVE_SEC = 10.0
+
+# Identificador del nodo que muestra el panel y que va en el reporte de turno.
+_NODE_ID = os.getenv("VIGILANTE_NODE_ID", "edge-01")
+
 # Cámaras cuyos eventos no se muestran en el panel (corridas del experimento).
 _EXCLUDED_EVENT_CAMERAS = {"CAM_EVAL"}
 
@@ -222,18 +228,34 @@ async def ws_live_feed(websocket: WebSocket, camera_id: str) -> None:
         _state.ws_clients.get(camera_id, set()).discard(websocket)
 
 
+# ── Identificador del nodo ────────────────────────────────────────────────────
+
+@operator_app.get("/api/node", dependencies=[Depends(require_auth)])
+async def node_info() -> Dict[str, Any]:
+    """Identificador del nodo (variable de entorno VIGILANTE_NODE_ID)."""
+    return {"node_id": _NODE_ID}
+
+
 # ── Estado de cámaras ─────────────────────────────────────────────────────────
 
 @operator_app.get("/api/cameras/status", dependencies=[Depends(require_auth)])
 async def cameras_status() -> Dict[str, Any]:
     """Retorna el estado actual de todas las cámaras registradas."""
     now = time.monotonic()
+    # Cámaras con un evento de los últimos _ALERT_ACTIVE_SEC sin Ack.
+    alert_cutoff = time.time() - _ALERT_ACTIVE_SEC
+    alerting = {
+        e.get("camera_id")
+        for e in _state.recent_events
+        if e.get("timestamp", 0) >= alert_cutoff and not _state.is_acknowledged(e.get("id", ""))
+    }
     cameras = []
     for cam in _state.cameras.values():
         cam = dict(cam)
         last = _state.last_frame_mono.get(cam["id"])
         if last is None or now - last > _FPS_STALE_SEC:
             cam["fps"] = 0
+        cam["alert_active"] = cam["id"] in alerting
         cameras.append(cam)
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -297,7 +319,7 @@ async def export_shift(
     ]
 
     summary: Dict[str, Any] = {
-        "node_id":      os.getenv("VIGILANTE_NODE_ID", "node_01"),
+        "node_id":      _NODE_ID,
         "from":         datetime.fromtimestamp(from_ts, tz=timezone.utc).isoformat(),
         "to":           datetime.fromtimestamp(to_ts,   tz=timezone.utc).isoformat(),
         "total_events": len(events_in_shift),
