@@ -30,6 +30,7 @@ import logging
 import os
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
@@ -107,6 +108,10 @@ class _OperatorState:
         self.ws_clients: Dict[str, Set[WebSocket]] = {}
         # Último frame JPEG por camera_id
         self.latest_frames: Dict[str, bytes] = {}
+        # Medición de cuadros recibidos por camera_id: [inicio_ventana, cuenta]
+        self._fps_window: Dict[str, List[float]] = {}
+        # Último cuadro recibido por camera_id (reloj monotónico)
+        self.last_frame_mono: Dict[str, float] = {}
 
     def update_camera(self, camera_id: str, **kwargs: Any) -> None:
         if camera_id not in self.cameras:
@@ -129,11 +134,31 @@ class _OperatorState:
     def set_frame(self, camera_id: str, jpeg_bytes: bytes) -> None:
         self.latest_frames[camera_id] = jpeg_bytes
 
+    def count_frame(self, camera_id: str) -> Optional[float]:
+        """Cuenta un cuadro recibido; cada ~1 s retorna los FPS medidos."""
+        now = time.monotonic()
+        self.last_frame_mono[camera_id] = now
+        window = self._fps_window.setdefault(camera_id, [now, 0.0])
+        window[1] += 1
+        elapsed = now - window[0]
+        if elapsed < _FPS_WINDOW_SEC:
+            return None
+        fps = window[1] / elapsed
+        self._fps_window[camera_id] = [now, 0.0]
+        return round(fps, 1)
+
     def is_acknowledged(self, event_id: str) -> bool:
         return event_id in self._acknowledged
 
 
 _state = _OperatorState()
+
+# Ventana de medición de FPS y tiempo sin cuadros tras el cual se informa 0.
+_FPS_WINDOW_SEC = 1.0
+_FPS_STALE_SEC = 2.0
+
+# Cámaras cuyos eventos no se muestran en el panel (corridas del experimento).
+_EXCLUDED_EVENT_CAMERAS = {"CAM_EVAL"}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -202,10 +227,18 @@ async def ws_live_feed(websocket: WebSocket, camera_id: str) -> None:
 @operator_app.get("/api/cameras/status", dependencies=[Depends(require_auth)])
 async def cameras_status() -> Dict[str, Any]:
     """Retorna el estado actual de todas las cámaras registradas."""
+    now = time.monotonic()
+    cameras = []
+    for cam in _state.cameras.values():
+        cam = dict(cam)
+        last = _state.last_frame_mono.get(cam["id"])
+        if last is None or now - last > _FPS_STALE_SEC:
+            cam["fps"] = 0
+        cameras.append(cam)
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "total":     len(_state.cameras),
-        "cameras":   list(_state.cameras.values()),
+        "total":     len(cameras),
+        "cameras":   cameras,
     }
 
 
@@ -215,13 +248,14 @@ async def cameras_status() -> Dict[str, Any]:
 async def recent_events(
     minutes: int = Query(60, ge=1, le=1440, description="Ventana temporal en minutos"),
 ) -> Dict[str, Any]:
-    """Retorna eventos de los últimos N minutos."""
+    """Retorna eventos de los últimos N minutos, del más reciente al más antiguo."""
     cutoff = time.time() - (minutes * 60)
     filtered = [
         {**e, "acknowledged": _state.is_acknowledged(e.get("id", ""))}
         for e in _state.recent_events
         if e.get("timestamp", 0) >= cutoff
     ]
+    filtered.sort(key=lambda e: e.get("timestamp", 0), reverse=True)
     return {
         "minutes":  minutes,
         "total":    len(filtered),
@@ -296,15 +330,47 @@ def push_frame(camera_id: str, frame_bgr: Any) -> None:
         quality = int(os.getenv("PANEL_JPEG_QUALITY", "60"))
         _, buf = _cv2.imencode(".jpg", frame_bgr, [_cv2.IMWRITE_JPEG_QUALITY, quality])
         _state.set_frame(camera_id, buf.tobytes())
-        _state.update_camera(camera_id, status="online")
+        fps = _state.count_frame(camera_id)
+        if fps is None:
+            _state.update_camera(camera_id, status="online")
+        else:
+            _state.update_camera(camera_id, status="online", fps=fps)
     except Exception as exc:
         LOG.debug("[OperatorPanel] Error comprimiendo frame cam=%s: %s", camera_id, exc)
 
 
+def _to_epoch(value: Any) -> float:
+    """Convierte un timestamp ISO 8601 (formato de EventLogger) a segundos epoch.
+
+    Acepta también números. Si no se puede interpretar, usa la hora actual
+    para que el evento no quede fuera del filtro por minutos.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        dt = datetime.fromisoformat(str(value))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+    except (TypeError, ValueError):
+        return time.time()
+
+
 def push_event(event: Dict[str, Any]) -> None:
-    """Inyecta un evento en el panel (llamado desde EventLogger / TriggerManager)."""
-    _state.push_event(event)
+    """Inyecta un evento en el panel (llamado desde runner.py vía set_event_sink).
+
+    Trabaja sobre una copia: el timestamp se convierte a epoch y se asigna
+    un id solo dentro del panel. El evento original (el que EventLogger
+    guarda en el JSONL) no se modifica.
+    """
     cam = event.get("camera_id", "")
+    if cam in _EXCLUDED_EVENT_CAMERAS:
+        return
+    event = dict(event)
+    event["timestamp_iso"] = event.get("timestamp")
+    event["timestamp"] = _to_epoch(event.get("timestamp"))
+    event.setdefault("id", uuid.uuid4().hex)
+    _state.push_event(event)
     if cam:
         alerts = _state.cameras.get(cam, {}).get("alerts", 0)
         _state.update_camera(cam, alerts=alerts + 1)

@@ -27,6 +27,72 @@ _C_TEXT_RED   = (50, 50, 255)
 _C_TEXT_AMBER = (40, 165, 255)
 _C_ACCENT     = (0, 165, 255)        # Naranja (marca Vigilante)
 
+_FONT = cv2.FONT_HERSHEY_SIMPLEX
+
+# Alto de la franja inferior del HUD. FileVideoReader.draw_progress dibuja su
+# barra justo encima para que no se superpongan.
+FOOTER_H = 20
+
+# Columnas como fracción del ancho del cuadro: (inicio, fin). El estado va
+# levemente a la derecha del centro: la columna izquierda (cámara, zona,
+# sector) es la que más texto lleva.
+_TOP_LEFT    = (0.015, 0.45)
+_TOP_CENTER  = (0.45, 0.65)
+_TOP_RIGHT   = (0.65, 0.985)
+_FOOT_LEFT   = (0.015, 0.49)
+_FOOT_RIGHT  = (0.51, 0.985)
+
+
+def fit_text(
+    text: str,
+    max_width: int,
+    scale: float,
+    thickness: int = 1,
+    min_scale: float = 0.35,
+) -> Tuple[str, float, int]:
+    """Ajusta un texto a un ancho máximo en píxeles.
+
+    Primero reduce la escala de la fuente hasta min_scale; si aun así no
+    cabe, recorta el texto y agrega "..".
+
+    Returns:
+        (texto, escala, ancho_en_pixeles)
+    """
+    width = cv2.getTextSize(text, _FONT, scale, thickness)[0][0]
+    if width > max_width > 0:
+        scale = max(min_scale, scale * max_width / width)
+        width = cv2.getTextSize(text, _FONT, scale, thickness)[0][0]
+    while width > max_width and len(text) > 1:
+        text = text[:-3] + ".." if len(text) > 3 else text[:-1]
+        width = cv2.getTextSize(text, _FONT, scale, thickness)[0][0]
+    return text, scale, width
+
+
+def put_text_in_column(
+    frame: np.ndarray,
+    text: str,
+    column: Tuple[float, float],
+    y: int,
+    scale: float,
+    color: Tuple[int, int, int],
+    thickness: int = 1,
+    align: str = "left",
+) -> None:
+    """Escribe un texto dentro de una columna definida en fracciones del ancho.
+
+    align: "left" | "center" | "right" dentro de la columna.
+    """
+    w = frame.shape[1]
+    x0, x1 = int(column[0] * w), int(column[1] * w)
+    text, scale, width = fit_text(text, x1 - x0, scale, thickness)
+    if align == "center":
+        x = x0 + (x1 - x0 - width) // 2
+    elif align == "right":
+        x = x1 - width
+    else:
+        x = x0
+    cv2.putText(frame, text, (x, y), _FONT, scale, color, thickness, cv2.LINE_AA)
+
 
 def draw_hud(
     frame: np.ndarray,
@@ -65,38 +131,38 @@ def draw_hud(
     cv2.rectangle(overlay, (0, 0), (w, bar_h), bar_color, -1)
     cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
 
+    # Las tres zonas de la barra superior son columnas proporcionales al
+    # ancho; cada texto se ajusta a la suya para no montarse sobre otro.
+
     # Nombre cámara + zona (izquierda)
     zone_text = f"{cam_name}  |  {zone}"
     if sector:
         zone_text += f"  [{sector}]"
-    cv2.putText(frame, zone_text, (10, 25),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, _C_TEXT_WHITE, 1, cv2.LINE_AA)
+    put_text_in_column(frame, zone_text, _TOP_LEFT, 25, 0.6, _C_TEXT_WHITE)
 
     # Estado (centro)
     state_color = _C_TEXT_RED if alert else _C_TEXT_GREEN
-    state_label = f"[ {state} ]"
-    state_size = cv2.getTextSize(state_label, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 2)[0]
-    state_x = (w - state_size[0]) // 2
-    cv2.putText(frame, state_label, (state_x, 26),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.65, state_color, 2, cv2.LINE_AA)
+    put_text_in_column(
+        frame, f"[ {state} ]", _TOP_CENTER, 26, 0.65, state_color, 2, align="center"
+    )
 
     # FPS + timestamp (derecha)
     ts = datetime.now().strftime("%H:%M:%S")
     right_text = f"FPS: {fps:4.1f}  |  {ts}"
-    right_size = cv2.getTextSize(right_text, cv2.FONT_HERSHEY_SIMPLEX, 0.52, 1)[0]
-    cv2.putText(frame, right_text, (w - right_size[0] - 10, 25),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.52, _C_TEXT_WHITE, 1, cv2.LINE_AA)
+    put_text_in_column(frame, right_text, _TOP_RIGHT, 25, 0.52, _C_TEXT_WHITE, align="right")
 
     # ── Barra inferior ──────────────────────────────────────────────────────
+    overlay = frame.copy()
+    cv2.rectangle(overlay, (0, h - FOOTER_H), (w, h), _C_BG_NORMAL, -1)
+    cv2.addWeighted(overlay, 0.72, frame, 0.28, 0, frame)
     footer_y = h - 6
-    engine_text = f"Motor: {engine} / {device}"
-    cv2.putText(frame, engine_text, (10, footer_y),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.42, _C_ACCENT, 1, cv2.LINE_AA)
-
-    events_text = f"Eventos sesion: {events_count}"
-    ev_size = cv2.getTextSize(events_text, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)[0]
-    cv2.putText(frame, events_text, (w - ev_size[0] - 10, footer_y),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.42, _C_TEXT_AMBER, 1, cv2.LINE_AA)
+    put_text_in_column(
+        frame, f"Motor: {engine} / {device}", _FOOT_LEFT, footer_y, 0.42, _C_ACCENT
+    )
+    put_text_in_column(
+        frame, f"Eventos sesion: {events_count}", _FOOT_RIGHT, footer_y, 0.42,
+        _C_TEXT_AMBER, align="right",
+    )
 
     # ── Flash de alerta (borde rojo parpadeante) ─────────────────────────────
     if alert:

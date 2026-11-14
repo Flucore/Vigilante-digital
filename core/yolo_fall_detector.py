@@ -170,7 +170,18 @@ class YoloFallDetector:
 
             if draw:
                 color = (0, 0, 255) if confirmed_fall else (0, 255, 0)
-                label = "CAIDA DETECTADA" if confirmed_fall else "Persona OK"
+                # Rótulo informativo: solo lee la ventana, no participa en la decisión.
+                streak = 0
+                for flag in reversed(window):
+                    if not flag:
+                        break
+                    streak += 1
+                if confirmed_fall:
+                    label = "CAIDA DETECTADA"
+                elif streak:
+                    label = f"Evaluando {streak}/{self.min_fall_frames}"
+                else:
+                    label = "Sin caida"
                 cv2.rectangle(img, (x1, y1), (x2, y2), color, 3)
                 cv2.putText(img, label, (x1, max(0, y1 - 10)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.65, color, 2)

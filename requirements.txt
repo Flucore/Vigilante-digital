@@ -15,8 +15,10 @@ torch==2.14.0
 ultralytics>=8.0.0
 
 # API forense y panel de operador (api/)
-fastapi>=0.110.0
-uvicorn>=0.29.0
+fastapi==0.163.0
+uvicorn==0.54.0
+# Sin una librería WebSocket, uvicorn rechaza /operator/ws/live (panel sin video)
+websockets==17.4
 slowapi>=0.1.9
 
 # Índice forense en PostgreSQL (outputs/forensic_db.py)

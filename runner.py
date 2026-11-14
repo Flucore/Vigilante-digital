@@ -28,7 +28,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -71,6 +71,48 @@ try:
     _COLOR_DETECTORS_AVAILABLE = True
 except Exception:
     _COLOR_DETECTORS_AVAILABLE = False
+
+# ── Salida opcional hacia el panel de operador ─────────────────────────────────
+# runner.py no importa el panel: quien lo levanta (demo_panel.py) registra aquí
+# su push_frame. Sin registro, run_file no hace ningún trabajo extra.
+_frame_sink: Optional[Callable[[str, np.ndarray], None]] = None
+_frame_sink_interval: float = 0.0
+
+
+def set_frame_sink(
+    sink: Optional[Callable[[str, np.ndarray], None]],
+    max_fps: float = 12.0,
+) -> None:
+    """Registra (o con None, retira) el receptor de frames anotados.
+
+    max_fps limita cuántos frames por segundo (reloj real) recibe el receptor.
+    """
+    global _frame_sink, _frame_sink_interval
+    _frame_sink = sink
+    _frame_sink_interval = 1.0 / max_fps if max_fps > 0 else 0.0
+
+
+_event_sink: Optional[Callable[[Dict[str, Any]], None]] = None
+
+
+def set_event_sink(sink: Optional[Callable[[Dict[str, Any]], None]]) -> None:
+    """Registra (o con None, retira) el receptor de episodios de caída cerrados."""
+    global _event_sink
+    _event_sink = sink
+
+
+def _emit_event(event: Dict[str, Any]) -> None:
+    """Entrega una copia del evento al receptor, si hay uno.
+
+    Se entrega una copia para que el receptor no altere el evento que se
+    guarda en el JSONL y que run_file retorna. Un fallo no interrumpe.
+    """
+    if _event_sink is None:
+        return
+    try:
+        _event_sink(dict(event))
+    except Exception as exc:
+        LOG.debug("Panel de operador no recibió el evento: %s", exc)
 
 
 def _m0_module_flags(modules_active: List[str], primary_module: str) -> tuple[bool, bool]:
@@ -632,6 +674,8 @@ def run_file(
     metodo: str = "pose",
     ventana: Optional[int] = None,
     modulo: Optional[str] = None,
+    loop: bool = False,
+    show_progress: bool = True,
 ) -> List[Dict[str, Any]]:
     """Procesa un archivo de video MP4 con barra de progreso.
 
@@ -649,6 +693,11 @@ def run_file(
     caída. None → detection.min_fall_frames del config (default 8).
 
     modulo: si se entrega, reemplaza los modules_active de la cámara del config.
+
+    loop: si True, el video se repite indefinidamente (uso de demo, no de
+    evaluación); termina con q/ESC o Ctrl+C.
+
+    show_progress: si False, no se dibuja la barra de progreso del archivo.
     """
     if metodo not in ("bbox", "pose"):
         raise ValueError(f"metodo desconocido: {metodo!r} (válidos: bbox | pose)")
@@ -749,7 +798,7 @@ def run_file(
 
     trigger_manager = TriggerManager(loader.get_section("triggers", {}))
 
-    reader = FileVideoReader(source, loop=False, module_name=primary_module)
+    reader = FileVideoReader(source, loop=loop, module_name=primary_module)
     if not reader.open():
         LOG.error("No se pudo abrir el archivo: %s", source)
         return events
@@ -762,6 +811,7 @@ def run_file(
     event_logger = EventLogger(ROOT / "outputs" / f"events_{cam.id}.jsonl", fps=video_fps)
 
     p_time = time.time()
+    last_sink_ts = 0.0
     frame_idx = 0
     events_count = 0
     paused = False
@@ -853,6 +903,7 @@ def run_file(
                     )
                     event_logger.log_event(completed)
                     events.append(completed)
+                    _emit_event(completed)
                     if dispatch_triggers:
                         _dispatch_event_triggers(
                             completed,
@@ -990,7 +1041,8 @@ def run_file(
             )
 
             # ── Barra de progreso ───────────────────────────────────────────
-            reader.draw_progress(proc_frame)
+            if show_progress:
+                reader.draw_progress(proc_frame)
 
             # ── Trigger overlay ─────────────────────────────────────────────
             if trigger_overlay_data and trigger_overlay_ts:
@@ -1000,6 +1052,16 @@ def run_file(
                 if not still:
                     trigger_overlay_data = None
                     trigger_overlay_ts = None
+
+            # ── Panel de operador (opcional) ───────────────────────────────
+            # Frame ya anotado (esqueleto, HUD). Un fallo del panel no
+            # interrumpe el procesamiento.
+            if _frame_sink is not None and c_time - last_sink_ts >= _frame_sink_interval:
+                last_sink_ts = c_time
+                try:
+                    _frame_sink(cam.id, proc_frame)
+                except Exception as exc:
+                    LOG.debug("Panel de operador no recibió el frame: %s", exc)
 
             # ── Ventana ────────────────────────────────────────────────────
             if not headless:
@@ -1031,6 +1093,7 @@ def run_file(
             )
             event_logger.log_event(final_ev)
             events.append(final_ev)
+            _emit_event(final_ev)
             if dispatch_triggers:
                 _dispatch_event_triggers(
                     final_ev,

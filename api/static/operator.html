@@ -218,11 +218,14 @@ function headers() {
 
 // ── Init ──
 async function init() {
+  // /api/v1/health es de forensic_api; si no está montada, el panel sigue igual.
   try {
     const r = await fetch(BASE + '/api/v1/health', { headers: headers() });
     if (r.status === 401) { document.getElementById('tokenModal').classList.remove('hidden'); return; }
-    const data = await r.json();
-    document.getElementById('nodeId').textContent = 'Nodo: ' + (data.node_id || 'edge-01');
+    if (r.ok) {
+      const data = await r.json();
+      document.getElementById('nodeId').textContent = 'Nodo: ' + (data.node_id || 'edge-01');
+    }
   } catch(e) {}
 
   refreshCameras();
@@ -257,6 +260,8 @@ function renderCameras(list) {
     grid.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:20px;">Sin cámaras registradas. Inicia runner.py para comenzar.</div>';
     return;
   }
+  // Quitar el mensaje provisorio ("Conectando..." / "Sin cámaras...")
+  grid.querySelectorAll(':scope > :not(.cam-card)').forEach(el => el.remove());
   list.forEach(cam => {
     let card = document.getElementById('cam-card-' + cam.id);
     if (!card) {
@@ -345,7 +350,8 @@ function renderEvents(events) {
   document.getElementById('statAlerts').textContent = alertsThisHour;
 
   panel.innerHTML = '';
-  [...events].reverse().forEach(evt => {
+  // La API entrega los eventos del más reciente al más antiguo.
+  events.forEach(evt => {
     const item = document.createElement('div');
     const level = evt.alert_level || 1;
     item.className = `alert-item level-${level}` + (evt.acknowledged ? ' acked' : '');
@@ -399,9 +405,14 @@ async function exportShift() {
 }
 
 async function checkHealth() {
-  const r = await fetch(BASE + '/api/v1/health', { headers: headers() });
-  const d = await r.json();
-  alert('Estado: ' + d.status + '\nDetecciones: ' + d.total_detections + '\nBD: ' + d.db_mode);
+  try {
+    const r = await fetch(BASE + '/api/v1/health', { headers: headers() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    alert('Estado: ' + d.status + '\nDetecciones: ' + d.total_detections + '\nBD: ' + d.db_mode);
+  } catch(e) {
+    alert('Salud del sistema no disponible en este nodo (requiere la API forense).');
+  }
 }
 
 // ── Start ──

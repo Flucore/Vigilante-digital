@@ -1,0 +1,5 @@
+brazo,metodo,ventana,clips,VP,FN,FP,VN,sensibilidad,especificidad,tasa_falsos_positivos,falsas_alarmas_camara_hora,denominador_min,latencia_mediana_s,n_latencia,clips_con_error
+bbox,bbox,,70,26,4,7,33,0.87,0.82,0.17,84.55,5.0,0.8,26,0
+pose_v2,pose,2,70,24,6,11,29,0.80,0.72,0.28,132.87,5.0,0.7,24,0
+pose_v3,pose,3,70,24,6,10,30,0.80,0.75,0.25,120.79,5.0,0.8,24,0
+pose_v5,pose,5,70,23,7,9,31,0.77,0.78,0.23,108.71,5.0,0.8,23,0

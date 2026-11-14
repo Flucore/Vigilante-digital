@@ -29,21 +29,23 @@ Conjunto de validación: 70 clips de UR Fall (30 caídas, 40 ADL).
 
 ## Alcance actual
 
-Tres líneas de trabajo, en este orden de prioridad:
+Dos líneas de trabajo, en este orden de prioridad:
 
 1. Experimento comparativo (eval/) — es la tesis. No tocar su lógica
    de medición por ningún motivo.
 2. Panel de operador (api/operator_panel.py + api/static/operator.html)
-   — existe y está desconectado. Falta conectarlo a runner.py.
-3. Agente de triaje (agente/) — proyecto de la asignatura TI2082.
-   Independiente: opera sobre eventos JSON sintéticos, no sobre el
-   pipeline de detección.
+   — existe y está desconectado. Falta conectarlo a runner.py con
+   push_frame y push_event.
+
+Congelados hasta después de la defensa: runner.py,
+core/yolo_fall_detector.py, outputs/event_logger.py y todo eval/.
+Solo se tocan para conectar el panel, y ese cambio se revisa completo.
 
 No implementar: zonas configurables, gestión de usuarios, autenticación
 del panel forense, persistencia en Postgres.
 
-El agente usa solo datos ficticios. Nunca clips de UR Fall ni datos de
-personas reales.
+La carpeta agente/ quedó descartada. No continuarla ni proponer trabajo
+sobre ella.
 
 ## Entorno
 

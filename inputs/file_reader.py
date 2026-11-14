@@ -20,6 +20,8 @@ from typing import Optional, Tuple, Union
 import cv2
 import numpy as np
 
+from outputs.hud_renderer import FOOTER_H, put_text_in_column
+
 LOG = logging.getLogger(__name__)
 
 # Colores HUD (BGR) — coherentes con hud_renderer.py
@@ -201,17 +203,20 @@ class FileVideoReader:
         """
         h, w = frame.shape[:2]
         bar_h = 30
+        # La franja queda sobre el pie del HUD (FOOTER_H), no encima de él.
+        bottom = h - FOOTER_H
+        top = bottom - bar_h
 
-        # Fondo semitransparente inferior
+        # Fondo semitransparente
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, h - bar_h), (w, h), _C_BG, -1)
+        cv2.rectangle(overlay, (0, top), (w, bottom), _C_BG, -1)
         cv2.addWeighted(overlay, 0.72, frame, 0.28, 0, frame)
 
         # Barra de progreso (línea de 4px en la parte superior del bloque)
         ratio = self.progress_ratio
         fill_w = int(w * ratio)
         if fill_w > 0:
-            cv2.rectangle(frame, (0, h - bar_h), (fill_w, h - bar_h + 4), _C_BAR, -1)
+            cv2.rectangle(frame, (0, top), (fill_w, top + 4), _C_BAR, -1)
 
         # Texto izquierdo: frame / total | tiempo relativo | módulo
         module_txt = f"  [{self.module_name}]" if self.module_name else ""
@@ -219,17 +224,12 @@ class FileVideoReader:
             f"Frame {self._current_frame}/{self._total_frames}"
             f"  |  {self.get_frame_timestamp_str()}{module_txt}"
         )
-        cv2.putText(
-            frame, left_txt, (8, h - 8),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.44, _C_TEXT, 1, cv2.LINE_AA,
-        )
+        put_text_in_column(frame, left_txt, (0.0125, 0.82), bottom - 8, 0.44, _C_TEXT)
 
         # Texto derecho: porcentaje
         pct_txt = f"{ratio * 100:.1f}%"
-        pct_w = cv2.getTextSize(pct_txt, cv2.FONT_HERSHEY_SIMPLEX, 0.44, 1)[0][0]
-        cv2.putText(
-            frame, pct_txt, (w - pct_w - 8, h - 8),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.44, _C_ACCENT, 1, cv2.LINE_AA,
+        put_text_in_column(
+            frame, pct_txt, (0.84, 0.9875), bottom - 8, 0.44, _C_ACCENT, align="right"
         )
 
         return frame
