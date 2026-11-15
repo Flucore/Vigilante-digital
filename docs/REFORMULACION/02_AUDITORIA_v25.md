@@ -6,7 +6,7 @@
 | Versión | 2.5-audit-1.0 |
 | Fecha | 2026-08-16 |
 | Alcance | Lectura de arquitectura y módulos; sin cambios de código |
-| Relacionado | [01_CHARTER.md](01_CHARTER.md) · [CODE_INDEX.md](../../CODE_INDEX.md) |
+| Relacionado | [01_CHARTER.md](01_CHARTER.md) · [CODE_INDEX.md](../CODE_INDEX.md) |
 
 ---
 

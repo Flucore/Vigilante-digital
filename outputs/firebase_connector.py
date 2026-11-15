@@ -1,7 +1,7 @@
 """Connector to sync local JSONL events to Firestore.
 
 This module does NOT contain credentials. It reads paths and settings from
-`config.py` or from constructor parameters. Follow ARCHITECTURE.md rules: keep
+`config.py` or from constructor parameters. Follow docs/ARCHITECTURE.md rules: keep
 credentials out of source and use environment variables or `config.py`.
 """
 from __future__ import annotations

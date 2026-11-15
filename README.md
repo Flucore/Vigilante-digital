@@ -1,55 +1,149 @@
-# Vigilante Digital (FluCore)
+# Vigía Digital
 
-Sistema edge de visión: **criterio de sitio**, no solo “cámaras con IA”.
+Experimento comparativo de criterios de detección de caídas de pacientes
+mediante visión computacional, para unidades de hospitalización de salud
+mental. El sistema procesa video de cámaras IP ya instaladas en un nodo local.
 
-> Una cámara con IA ve clases universales. Vigilante Digital acumula criterio de este sitio.
+Proyecto de título de Ingeniería en Informática, INACAP 2026.
+Equipo: Víctor Bonta, Víctor Sepúlveda, Damián Fierro.
 
 | Campo | Valor |
 |---|---|
-| Repo | [Flucore/Vigilante-digital](https://github.com/Flucore/Vigilante-digital) |
-| Versión documental | 3.0 · 2026-08-16 |
-| Punto de entrada | `runner.py` |
-| Track / avance | **C0–C4 Done** · siguiente **C5** (empaque Docker) |
-| Protocolo equipo | [docs/PROTOCOLO_GITHUB.md](docs/PROTOCOLO_GITHUB.md) |
+| Rama de trabajo | `academico` |
+| Experimento | [`eval/evaluar.py`](eval/evaluar.py) · especificación en [`eval/ESPECIFICACIONES.md`](eval/ESPECIFICACIONES.md) |
+| Punto de entrada del pipeline | `runner.py` |
+| Panel de demostración | `demo_panel.py` |
 
 ---
 
-## Para compañeros (Proyecto de Título + FluCore)
+## Pregunta de investigación
 
-Leer **en este orden** antes de tocar código:
+> ¿En qué medida un criterio sobre pose con confirmación temporal reduce la
+> tasa de falsas alarmas frente a un criterio geométrico instantáneo,
+> manteniendo la sensibilidad?
 
-| # | Documento | Para qué |
+Los dos criterios reciben exactamente la misma entrada: los mismos frames, el
+mismo detector de pose (YOLOv8-pose) y el mismo umbral de confianza. Lo único
+que cambia es la regla de decisión.
+
+| Criterio | Qué mira | Rol |
 |---|---|---|
-| 1 | [docs/PROTOCOLO_GITHUB.md](docs/PROTOCOLO_GITHUB.md) | Cómo colaborar en GitHub **sin secretos** |
-| 2 | [AI_CONTEXT.md](AI_CONTEXT.md) | Contexto permanente + **estado del proyecto** |
-| 3 | [MASTER_DEVELOPMENT_PLAN.md](MASTER_DEVELOPMENT_PLAN.md) | Mapa Dual-Track (comercial ↔ académico) |
-| 4 | [DESARROLLO_EJECUTABLE.md](DESARROLLO_EJECUTABLE.md) | Sprints C*/A*, DoD y prompts por unidad |
-| 5 | [GLOSARIO.md](GLOSARIO.md) | M0–M3, FAR, calibrar ≠ entrenar, antipatrones |
-| 6 | [docs/REFORMULACION/01_CHARTER.md](docs/REFORMULACION/01_CHARTER.md) | Charter del producto |
-| 7 | [docs/REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md](docs/REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md) | **Alcance comercial (F1)** |
-| 8 | [docs/REFORMULACION/07_PROYECTO_TITULO.md](docs/REFORMULACION/07_PROYECTO_TITULO.md) | **Alcance académico / título (F2)** |
-| 9 | [CODE_INDEX.md](CODE_INDEX.md) | Capas, APIs, eventos canónicos |
+| `bbox` | Solo la proporción alto/ancho del rectángulo delimitador, frame a frame, sin puntos clave ni ventana temporal | Línea base. Su lógica no se modifica. |
+| `pose` con ventana N | Proporción de la caja, inclinación del torso y altura de caderas sobre los puntos clave, y exige N frames consecutivos para confirmar la caída | Método propuesto |
 
-Paquete completo de reformulación: [docs/REFORMULACION/README.md](docs/REFORMULACION/README.md).
+La evaluación estándar corre tres brazos:
 
-### Alcances (resumen)
+| Brazo | Parámetros | Qué aísla |
+|---|---|---|
+| `bbox` | `--metodo bbox` | Línea base |
+| `pose_v1` | `--metodo pose --ventana 1` | Aporte de los puntos clave, sin confirmación temporal |
+| `pose_v8` | `--metodo pose --ventana 8` | Método propuesto completo |
 
-| Track | Enfoque | Incluye | No incluye (por defecto) |
-|---|---|---|---|
-| **F1 Comercial** | Liquidez Verano 2026 | Care / Fall, Perimeter, Aqua (M0 `pool`), empaque edge | Auto-deploy de pesos, Guerrilla |
-| **F2 Académico** | Tesis / título | HITL, gold-set, promote, memoria M1–M3 | Mezclar con C1–C6 en la misma sesión |
+`pose_v1` frente a `bbox` mide lo que aportan los puntos clave; `pose_v8`
+frente a `pose_v1` mide lo que aporta la ventana temporal.
 
-### Avance actual (tablero)
+**Métricas** (un clip es una unidad de evaluación; hay alarma si el brazo
+emitió al menos un evento de caída): sensibilidad, especificidad, tasa de
+falsos positivos, falsas alarmas por cámara-hora y latencia mediana. Las
+definiciones exactas están en [`eval/ESPECIFICACIONES.md`](eval/ESPECIFICACIONES.md) §5.
 
-```text
-C0 DOCS ✓ · C1 M0 ✓ · C2 Care ✓ · C3 Perimeter ✓ · C4 Aqua ✓ · C5 Empaque ← siguiente · C6 Tests
+---
+
+## Conjunto de validación
+
+70 clips de la cámara 0 del [UR Fall Detection Dataset](http://fenix.ur.edu.pl/~mkepski/ds/uf.html):
+30 caídas (`fall-XX-cam0`) y 40 actividades de la vida diaria (`adl-XX-cam0`).
+
+Cómo se preparó y etiquetó:
+
+1. **Clips.** `scripts/preparar_clips.py` recorta la mitad RGB de los videos
+   compuestos (profundidad + RGB lado a lado) y escala todo a 640×480. Los
+   clips resultantes quedan en `data/goldset/` con prefijo `rgb-`.
+2. **Etiqueta.** `scripts/generar_labels.py` genera `data/labels.csv` y deduce
+   la etiqueta del nombre del archivo: `fall` → `caida`, `adl` → `no_caida`.
+3. **Inicio de la caída.** `scripts/anotar_desde_urfall.py` completa
+   `inicio_caida_s` a partir de las etiquetas por frame que publica UR Fall
+   (`urfall-cam0-falls.csv`): toma el primer frame marcado como pose
+   transitoria (etiqueta 0) o, si no lo hay, el primer frame en el suelo
+   (etiqueta 1), y lo convierte a segundos con los fps del clip. Los 30 clips
+   de caída tienen inicio anotado.
+
+```powershell
+python scripts/preparar_clips.py data/urfall_original data/goldset
+python scripts/generar_labels.py data/goldset data/labels.csv
+python scripts/anotar_desde_urfall.py urfall-cam0-falls.csv data/labels.csv data/goldset
 ```
 
-Detalle vivo: `AI_CONTEXT.md` §6 y `DESARROLLO_EJECUTABLE.md` §1.
+`data/labels.csv` y `urfall-cam0-falls.csv` están versionados. Los videos no:
+hay que descargarlos de UR Fall y dejarlos en `data/urfall_original/`.
 
 ---
 
-## Inicio rápido
+## Reproducir el experimento
+
+Con los 70 clips en `data/goldset/`:
+
+```powershell
+python -m eval.evaluar --clips data/goldset --labels data/labels.csv --salida eval/resultados
+```
+
+Usa por defecto `eval/config_eval.json` (versionado, sin secretos, una cámara
+en `fall_detection`) y no `client_config.json`. Aborta si el módulo activo no
+es `fall_detection`. La corrida es determinista: los tiempos se miden en
+segundos de video, no con el reloj del sistema.
+
+Resultados:
+
+| Archivo | Contenido |
+|---|---|
+| `eval/resultados/resumen.csv` | Una fila por brazo con VP, FN, FP, VN y todas las métricas |
+| `eval/resultados/detalle.csv` | Una fila por clip y brazo, con alarma, segundo de la primera alarma y resultado |
+
+Además se imprime por pantalla una tabla comparativa, con el denominador real
+de la tasa por cámara-hora en minutos.
+
+**Barrido de ventanas** (corre `bbox` una vez y un brazo `pose_vN` por valor):
+
+```powershell
+python -m eval.evaluar --clips data/goldset --labels data/labels.csv --salida eval/resultados_barrido --ventanas 1,2,3,4,5,6,8,10
+```
+
+Si la ventana se elige mirando el barrido, la elección se hizo con los mismos
+clips con que se mide: las métricas de esa ventana son exploratorias.
+
+Ambas carpetas de resultados están versionadas como evidencia de la corrida.
+Tests del evaluador: `python -m pytest eval`.
+
+---
+
+## Panel de demostración
+
+`demo_panel.py` levanta el panel de operador (`api/operator_panel.py`) y el
+pipeline en un mismo proceso: los frames anotados y los eventos de caída
+llegan al panel en vivo. Usa `config_demo.json`, con los mismos umbrales de
+`eval/config_eval.json`.
+
+```powershell
+# Un video (con ventana de OpenCV)
+python demo_panel.py --source data/goldset/rgb-fall-01-cam0.mp4
+
+# Varios videos, uno por cámara del config, en bucle
+python demo_panel.py --source a.mp4 b.mp4 c.mp4 --loop
+
+# Elegir criterio y ventana
+python demo_panel.py --source clip.mp4 --metodo pose --ventana 8
+```
+
+Abrir en el navegador: <http://127.0.0.1:8000/operator/>
+
+Otras opciones: `--cam` (cámaras del config, una por video), `--headless`,
+`--esperar` (espera Enter antes de procesar), `--host`, `--port`. El panel
+escucha solo en `127.0.0.1` por defecto. Requiere `fastapi` y `uvicorn`,
+incluidos en `requirements.txt`.
+
+---
+
+## Instalación
 
 ```powershell
 git clone https://github.com/Flucore/Vigilante-digital.git
@@ -111,23 +205,42 @@ Los eventos de `file` y `batch` quedan en `outputs/events_<cam_id>.jsonl`.
 
 ---
 
-## Capas
+## Fuera de alcance
 
-`inputs/` → `core/` → `outputs/` · `api/` · `scripts/` · `config.py`
+El entregable es la comparación medida, no un producto. Todo lo que no
+contribuye a responder la pregunta de investigación o a mostrarla en la
+demostración queda fuera, por dos razones: el tiempo hasta la defensa y el
+riesgo de alterar, sin querer, las condiciones bajo las que se midió.
+
+- **No se implementa:** zonas configurables, gestión de usuarios,
+  autenticación del panel forense ni persistencia en Postgres. Son
+  necesidades de un despliegue real, no del experimento.
+- **Congelados hasta después de la defensa:** `runner.py`,
+  `core/yolo_fall_detector.py`, `outputs/event_logger.py` y todo `eval/`.
+  Cambiarlos invalidaría los resultados ya versionados.
+- **El criterio `bbox` no se ajusta:** es la referencia contra la que se
+  compara; mejorarlo cambiaría la pregunta.
+- **Descartado:** la carpeta `agente/`.
+- **Los otros módulos** (`perimeter`, `geofence`, `aqua`) y las integraciones
+  opcionales (Firebase, email, reportes PDF) vienen de una etapa anterior del
+  proyecto y no forman parte del experimento.
+- **Validez:** 70 clips de un solo dataset, grabado con actores y no en
+  una unidad de salud mental. La tasa por cámara-hora
+  se extrapola desde pocos minutos de video sin caídas.
 
 ---
 
 ## Seguridad
 
-- Sin credenciales en el repo.  
-- Ejemplos públicos: `client_config.example.json`, `client_config.aqua.example.json`.  
-- Videos, fotos, pesos y service accounts quedan fuera de Git (`.gitignore`).
+- Sin credenciales en el repo: claves en variables de entorno (`.env`, no versionado).
+- No se versionan videos, modelos `.pt`, `.venv` ni direcciones IP de cámaras (`.gitignore`).
+- Ejemplos públicos: `client_config.example.json`, `client_config.aqua.example.json`.
 
 ---
 
-## Siguiente acción de desarrollo
+## Documentación histórica
 
-```text
-TRACK=COMERCIAL · C5
-Lee DESARROLLO_EJECUTABLE.md §3 C5 y ejecuta solo esa unidad.
-```
+Los documentos de [`docs/`](docs/README.md) registran la etapa anterior del
+proyecto (plan comercial Dual-Track de FluCore, arquitectura de producto,
+compliance, demos). Se conservan como histórico; no describen el alcance
+actual. Índice: [docs/README.md](docs/README.md).

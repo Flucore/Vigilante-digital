@@ -127,7 +127,7 @@ class ConfigLoader:
             raise ValueError(
                 f"\n[ConfigLoader] Faltan campos obligatorios en '{self._path}':\n"
                 f"  {', '.join(sorted(missing))}\n"
-                f"  Consulta MASTER_DEVELOPMENT_PLAN.md sección 4.2 para el esquema completo."
+                f"  Consulta docs/CODE_INDEX.md sección 6 para el esquema completo."
             )
 
         schema = self._raw.get("_schema_version", "?")

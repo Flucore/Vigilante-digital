@@ -31,8 +31,8 @@
 
 | Track | Meta | Documento |
 |---|---|---|
-| **Comercial (F1)** | Piloto edge cobrable Verano 2026 | [06_PLAN…](docs/REFORMULACION/06_PLAN_DUAL_TRACK.md) · [DESARROLLO…](DESARROLLO_EJECUTABLE.md) |
-| **Académico (F2)** | Proyecto de Título + MLOps | [07_PROYECTO_TITULO.md](docs/REFORMULACION/07_PROYECTO_TITULO.md) |
+| **Comercial (F1)** | Piloto edge cobrable Verano 2026 | [06_PLAN…](REFORMULACION/06_PLAN_DUAL_TRACK.md) · [DESARROLLO…](DESARROLLO_EJECUTABLE.md) |
+| **Académico (F2)** | Proyecto de Título + MLOps | [07_PROYECTO_TITULO.md](REFORMULACION/07_PROYECTO_TITULO.md) |
 | **DOCS** | Gobierno documental | **Cerrado** 2026-08-16 |
 
 **Regla:** no meter train job, bus de eventos, auto-promote ni microservicios en sprints de liquidez (C1–C6).
@@ -46,7 +46,7 @@
 | M2 Taxonomía | Cat vs Komatsu, etc. (clasificador fino) | Sí, domain mix |
 | M3 Conductual | Eventos compuestos (reglas primero) | Secuencia después |
 
-Detalle: [05_ARQUITECTURA…](docs/REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md).
+Detalle: [05_ARQUITECTURA…](REFORMULACION/05_ARQUITECTURA_Y_MEMORIA_SITIO.md).
 
 ## 4. Arquitectura (inamovible)
 
@@ -79,14 +79,14 @@ DOCS ✓ → C1 M0 ✓ → C2 Care ✓ → C3 Perimeter ✓ → C4 Aqua ✓ → 
 | FAR contractual | **No prometido** hasta evidencia; se mide |
 | Niveles | Silent → Notify → Critical |
 
-Readiness de venta: [04_VISION_COMERCIAL…](docs/REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md).
+Readiness de venta: [04_VISION_COMERCIAL…](REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md).
 
 ## 7. Cumplimiento
 
 - Leyes Chile (datos, ciber, vigilancia) + ISO 27001/27701/45001 según vertical.  
 - Guerrilla FluCore **excluida**.  
 - Personas en dataset = biométrico; tenant isolation.  
-- Ver `COMPLIANCE.md`, `THREAT_MODEL.md`, [09_REGISTRO…](docs/REFORMULACION/09_REGISTRO_RIESGOS_Y_DEUDA.md).
+- Ver `COMPLIANCE.md`, `THREAT_MODEL.md`, [09_REGISTRO…](REFORMULACION/09_REGISTRO_RIESGOS_Y_DEUDA.md).
 
 ## 8. Lectura obligatoria antes de código
 

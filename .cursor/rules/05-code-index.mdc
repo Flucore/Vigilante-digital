@@ -1,7 +1,7 @@
 ---
 name: code-index
 description: >-
-  Regla que obliga a todo agente a leer CODE_INDEX.md antes de cualquier
+  Regla que obliga a todo agente a leer docs/CODE_INDEX.md antes de cualquier
   modificación estructural. El índice es la fuente de verdad de clases,
   funciones, entidades, triggers, eventos, endpoints y convenciones.
 globs:
@@ -12,7 +12,7 @@ globs:
 alwaysApply: true
 ---
 
-# Regla: Leer CODE_INDEX.md antes de modificar
+# Regla: Leer docs/CODE_INDEX.md antes de modificar
 
 ## Obligatorio antes de cualquier cambio estructural
 
@@ -24,7 +24,7 @@ Si vas a:
 - Crear un endpoint de API
 - Cambiar la configuración de `client_config.json`
 
-**DEBES leer `CODE_INDEX.md` en su totalidad primero.**
+**DEBES leer `docs/CODE_INDEX.md` en su totalidad primero.**
 
 El índice contiene:
 - Mapa completo de módulos por capa
@@ -36,10 +36,10 @@ El índice contiene:
 - Glosario de términos del dominio
 - Reglas de importación entre capas (inamovibles)
 
-## Actualizar CODE_INDEX.md al terminar
+## Actualizar docs/CODE_INDEX.md al terminar
 
 Cuando introduzcas cualquier cambio en interfaz pública:
-1. Actualiza la sección correspondiente en `CODE_INDEX.md`
+1. Actualiza la sección correspondiente en `docs/CODE_INDEX.md`
 2. Si es un nuevo módulo: agrégalo al mapa de módulos (sección 2) y al directorio de clases (sección 3)
 3. Si es una nueva variable de entorno: agrégala a la sección 5
 4. Si es un nuevo tipo de evento: agrégalo a la sección 4
@@ -59,11 +59,11 @@ Violar estas reglas crea acoplamiento circular y es motivo de rechazo.
 
 ## Verificación rápida antes de entregar código
 
-- [ ] ¿Leí CODE_INDEX.md?
+- [ ] ¿Leí docs/CODE_INDEX.md?
 - [ ] ¿Los type hints están en toda función pública?
 - [ ] ¿No hay credenciales en ningún archivo .py o .json?
 - [ ] ¿Los timestamps son ISO 8601 con timezone?
 - [ ] ¿Los nuevos eventos tienen `event_schema_version: "2.0"`?
 - [ ] ¿La escritura de archivos usa mkstemp + os.replace (atómica)?
 - [ ] ¿Firebase sigue siendo opcional (envuelto en try/except)?
-- [ ] ¿Actualicé CODE_INDEX.md si cambié alguna interfaz pública?
+- [ ] ¿Actualicé docs/CODE_INDEX.md si cambié alguna interfaz pública?

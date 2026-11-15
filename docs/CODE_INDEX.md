@@ -2,7 +2,7 @@
 > Directorio técnico oficial del proyecto. Toda IA o desarrollador debe leer este archivo antes de modificar el sistema.
 > Actualizar ante cualquier cambio de interfaz pública, nueva entidad, nuevo endpoint o nuevo módulo.
 > Versión: 2.1 · Actualizado: 2026-08-16
-> **Companion:** [`GLOSARIO.md`](GLOSARIO.md) · [`DESARROLLO_EJECUTABLE.md`](DESARROLLO_EJECUTABLE.md) · [`AI_CONTEXT.md`](AI_CONTEXT.md) · [`docs/REFORMULACION/`](docs/REFORMULACION/README.md)
+> **Companion:** [`GLOSARIO.md`](GLOSARIO.md) · [`DESARROLLO_EJECUTABLE.md`](DESARROLLO_EJECUTABLE.md) · [`AI_CONTEXT.md`](AI_CONTEXT.md) · [`docs/REFORMULACION/`](REFORMULACION/README.md)
 
 ---
 

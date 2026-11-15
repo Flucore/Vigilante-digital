@@ -98,7 +98,7 @@ NOW     U5 DOCS ──► C1 M0 ──► C2 Care ──► C3 Perimeter ──�
 ## 6. Criterio “listo para código”
 
 **Listo.** Primera unidad = **C1** (`TRACK_COMERCIAL`).  
-Prompt canónico: [`DESARROLLO_EJECUTABLE.md`](../../DESARROLLO_EJECUTABLE.md) §3 (espejo en `08_BACKLOG_HUMANOS_IA.md` §6).
+Prompt canónico: [`DESARROLLO_EJECUTABLE.md`](../DESARROLLO_EJECUTABLE.md) §3 (espejo en `08_BACKLOG_HUMANOS_IA.md` §6).
 
 ## 7. Verificación de este plan
 

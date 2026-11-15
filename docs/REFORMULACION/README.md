@@ -5,18 +5,18 @@
 | Estado | **Ola DOCS CERRADA** (2026-08-16) |
 | Protocolos | FluCore v1 + Vibe Coding · Guerrilla excluido |
 | Prompt maestro | [00_PROMPT_MAESTRO.md](00_PROMPT_MAESTRO.md) |
-| Ejecución código | [../../DESARROLLO_EJECUTABLE.md](../../DESARROLLO_EJECUTABLE.md) |
-| Glosario | [../../GLOSARIO.md](../../GLOSARIO.md) |
-| Índice código | [../../CODE_INDEX.md](../../CODE_INDEX.md) |
-| Plan maestro | [../../MASTER_DEVELOPMENT_PLAN.md](../../MASTER_DEVELOPMENT_PLAN.md) |
+| Ejecución código | [../../DESARROLLO_EJECUTABLE.md](../DESARROLLO_EJECUTABLE.md) |
+| Glosario | [../../GLOSARIO.md](../GLOSARIO.md) |
+| Índice código | [../../CODE_INDEX.md](../CODE_INDEX.md) |
+| Plan maestro | [../../MASTER_DEVELOPMENT_PLAN.md](../MASTER_DEVELOPMENT_PLAN.md) |
 | Siguiente | **TRACK_COMERCIAL · C5** |
 
 ## Orden de lectura
 
-1. [`AI_CONTEXT.md`](../../AI_CONTEXT.md)
-2. [`DESARROLLO_EJECUTABLE.md`](../../DESARROLLO_EJECUTABLE.md) — unidad activa
+1. [`AI_CONTEXT.md`](../AI_CONTEXT.md)
+2. [`DESARROLLO_EJECUTABLE.md`](../DESARROLLO_EJECUTABLE.md) — unidad activa
 3. Este paquete (charter → arquitectura → plan → riesgos)
-4. [`CODE_INDEX.md`](../../CODE_INDEX.md) al tocar código
+4. [`CODE_INDEX.md`](../CODE_INDEX.md) al tocar código
 
 ## Paquete
 

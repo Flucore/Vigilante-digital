@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import threading
 import time
@@ -146,17 +147,26 @@ class _VideoWorker(threading.Thread):
     """Procesa un video como una cámara, con su propio detector (run_file)."""
 
     def __init__(self, loader: ConfigLoader, source: str, cam_id: str,
-                 args: argparse.Namespace, stop_event: threading.Event) -> None:
+                 args: argparse.Namespace, stop_event: threading.Event,
+                 torch_threads: int | None = None) -> None:
         super().__init__(daemon=True, name=f"demo-{cam_id}")
         self.loader = loader
         self.source = source
         self.cam_id = cam_id
         self.args = args
         self.stop_event = stop_event
+        self.torch_threads = torch_threads
+        self.applied_threads: int | None = None
         self.end_ts: float = 0.0
         self.error: Exception | None = None
 
     def run(self) -> None:
+        if self.torch_threads:
+            # Con el backend OpenMP de PyTorch el límite es por hilo: se fija
+            # aquí, en el hilo de esta cámara, antes de crear su detector.
+            import torch
+            torch.set_num_threads(self.torch_threads)
+            self.applied_threads = torch.get_num_threads()
         try:
             runner.run_file(
                 self.loader,
@@ -203,9 +213,23 @@ def _report_throughput(workers: list[_VideoWorker]) -> None:
         if w.error or frames < 2 or elapsed <= 0:
             print(f"  {w.cam_id:<20} sin medición ({'error' if w.error else 'sin datos'})")
             continue
+        threads = w.applied_threads if w.applied_threads else "default"
         print(f"  {w.cam_id:<20} {frames:>5} cuadros en {elapsed:6.1f} s "
-              f"-> {(frames - 1) / elapsed:5.1f} fps   ({Path(w.source).name})")
+              f"-> {(frames - 1) / elapsed:5.1f} fps   hilos torch: {threads}   "
+              f"({Path(w.source).name})")
     print(flush=True)
+
+
+def _torch_threads_per_camera(demo_cfg: dict, n_cameras: int) -> int:
+    """Hilos de PyTorch para el detector de cada cámara (solo con varios videos).
+
+    demo.torch_threads_per_camera del config; si es null o falta, se reparten
+    los núcleos lógicos del equipo entre las cámaras (12 lógicos, 4 cámaras → 3).
+    """
+    configured = demo_cfg.get("torch_threads_per_camera")
+    if configured:
+        return max(1, int(configured))
+    return max(1, (os.cpu_count() or 1) // max(1, n_cameras))
 
 
 def main() -> None:
@@ -262,7 +286,9 @@ def main() -> None:
                 show_progress=False,
             )
         else:
-            workers = [_VideoWorker(loader, src, cam.id, args, stop_event)
+            threads = _torch_threads_per_camera(demo_cfg, len(assignments))
+            LOG.info("Hilos de PyTorch por cámara: %d (%d cámaras)", threads, len(assignments))
+            workers = [_VideoWorker(loader, src, cam.id, args, stop_event, threads)
                        for src, cam in assignments]
             for w in workers:
                 w.start()

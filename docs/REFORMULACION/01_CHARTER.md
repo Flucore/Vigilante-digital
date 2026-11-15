@@ -7,7 +7,7 @@
 | Fecha | 2026-08-16 |
 | Dueño | FluCore |
 | Protocolo | PROTOCOLO-FLUCORE-v1 · Vibe Coding · Guerrilla **excluido** |
-| Relacionado | [AI_CONTEXT.md](../../AI_CONTEXT.md) · [00_PROMPT_MAESTRO.md](00_PROMPT_MAESTRO.md) |
+| Relacionado | [AI_CONTEXT.md](../AI_CONTEXT.md) · [00_PROMPT_MAESTRO.md](00_PROMPT_MAESTRO.md) |
 
 ---
 

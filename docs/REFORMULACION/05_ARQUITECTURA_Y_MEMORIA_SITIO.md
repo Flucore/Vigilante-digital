@@ -6,7 +6,7 @@
 | Versión | 1.0 |
 | Fecha | 2026-08-16 |
 | Dueño | FluCore |
-| Relacionado | [01_CHARTER.md](01_CHARTER.md) · [03_GLOSARIO.md](03_GLOSARIO.md) · [CODE_INDEX.md](../../CODE_INDEX.md) |
+| Relacionado | [01_CHARTER.md](01_CHARTER.md) · [03_GLOSARIO.md](03_GLOSARIO.md) · [CODE_INDEX.md](../CODE_INDEX.md) |
 
 > **Calibrar ≠ Entrenar.** SAM/SAM2 **nunca** en el loop 24/7 de cámara. BBox **no** se abandona.
 

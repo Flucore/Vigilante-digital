@@ -3,7 +3,7 @@
 ## Resumen
 
 El proyecto puede usar Firebase vía `GOOGLE_APPLICATION_CREDENTIALS`.  
-**Las claves NUNCA van en el repositorio.** Ver también [docs/PROTOCOLO_GITHUB.md](docs/PROTOCOLO_GITHUB.md).
+**Las claves NUNCA van en el repositorio.** Ver también [docs/PROTOCOLO_GITHUB.md](PROTOCOLO_GITHUB.md).
 
 Orquestador vigente: `runner.py` ( `main.py` es legado ).
 

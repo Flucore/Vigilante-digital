@@ -6,7 +6,7 @@
 | Versión | 1.0 |
 | Fecha | 2026-08-16 |
 | Plan | [06_PLAN_DUAL_TRACK.md](06_PLAN_DUAL_TRACK.md) |
-| Contexto IA | [../../AI_CONTEXT.md](../../AI_CONTEXT.md) |
+| Contexto IA | [../../AI_CONTEXT.md](../AI_CONTEXT.md) |
 
 ---
 

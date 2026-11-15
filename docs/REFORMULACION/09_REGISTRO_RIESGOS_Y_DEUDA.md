@@ -6,7 +6,7 @@
 | Versión | 1.0 |
 | Fecha | 2026-08-16 |
 | Alcance | Vigilante Digital (espejo operativo; no copia FluCore entero) |
-| Relacionado | [02_AUDITORIA_v25.md](02_AUDITORIA_v25.md) · [../../THREAT_MODEL.md](../../THREAT_MODEL.md) |
+| Relacionado | [02_AUDITORIA_v25.md](02_AUDITORIA_v25.md) · [../../THREAT_MODEL.md](../THREAT_MODEL.md) |
 
 Leyenda severidad: **A** alta · **M** media · **B** baja.  
 Estado: abierto | mitigando | aceptado | cerrado.

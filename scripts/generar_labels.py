@@ -4,7 +4,7 @@ Deduce la etiqueta del nombre del archivo (fall -> caida, adl -> no_caida)
 y deja inicio_caida_s vacío para que lo completes a mano en los positivos.
 
 Uso:
-    python generar_labels.py data/goldset data/labels.csv
+    python scripts/generar_labels.py data/goldset data/labels.csv
 """
 from __future__ import annotations
 

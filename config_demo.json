@@ -16,7 +16,8 @@
     "fall_angle_threshold_deg": 55.0
   },
   "demo": {
-    "snapshot_dir": "test_outputs/snapshots"
+    "snapshot_dir": "test_outputs/snapshots",
+    "torch_threads_per_camera": null
   },
   "triggers": {
     "enabled": false

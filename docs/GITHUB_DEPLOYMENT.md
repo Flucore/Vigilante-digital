@@ -1,6 +1,6 @@
 # Publicar / actualizar en GitHub (Flucore)
 
-> Guía corta. Protocolo completo del equipo: **[docs/PROTOCOLO_GITHUB.md](docs/PROTOCOLO_GITHUB.md)**.
+> Guía corta. Protocolo completo del equipo: **[docs/PROTOCOLO_GITHUB.md](PROTOCOLO_GITHUB.md)**.
 
 ## Repo canónico
 

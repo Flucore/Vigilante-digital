@@ -5,7 +5,7 @@ y escala todo a una resolución uniforme. Los videos que ya vienen solo en RGB
 se escalan sin recortar.
 
 Uso:
-    python preparar_clips.py <carpeta_origen> <carpeta_destino>
+    python scripts/preparar_clips.py <carpeta_origen> <carpeta_destino>
 """
 from __future__ import annotations
 

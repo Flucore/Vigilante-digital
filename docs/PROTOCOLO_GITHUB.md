@@ -31,14 +31,14 @@ Orden sugerido (30–60 min):
 | # | Documento | Qué responde |
 |---|---|---|
 | 1 | [README.md](../README.md) | Arranque + mapa |
-| 2 | [AI_CONTEXT.md](../AI_CONTEXT.md) | Contexto permanente, antipatrones, **estado actual** |
-| 3 | [MASTER_DEVELOPMENT_PLAN.md](../MASTER_DEVELOPMENT_PLAN.md) | Visión Dual-Track ejecutiva |
-| 4 | [DESARROLLO_EJECUTABLE.md](../DESARROLLO_EJECUTABLE.md) | Sprints, DoD, **unidad activa** |
-| 5 | [GLOSARIO.md](../GLOSARIO.md) | Términos (M0–M3, FAR, calibrar ≠ entrenar) |
+| 2 | [AI_CONTEXT.md](AI_CONTEXT.md) | Contexto permanente, antipatrones, **estado actual** |
+| 3 | [MASTER_DEVELOPMENT_PLAN.md](MASTER_DEVELOPMENT_PLAN.md) | Visión Dual-Track ejecutiva |
+| 4 | [DESARROLLO_EJECUTABLE.md](DESARROLLO_EJECUTABLE.md) | Sprints, DoD, **unidad activa** |
+| 5 | [GLOSARIO.md](GLOSARIO.md) | Términos (M0–M3, FAR, calibrar ≠ entrenar) |
 | 6 | [docs/REFORMULACION/01_CHARTER.md](REFORMULACION/01_CHARTER.md) | Charter FluCore |
 | 7 | [docs/REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md](REFORMULACION/04_VISION_COMERCIAL_Y_VENTAS.md) | Alcance comercial |
 | 8 | [docs/REFORMULACION/07_PROYECTO_TITULO.md](REFORMULACION/07_PROYECTO_TITULO.md) | Alcance académico / título |
-| 9 | [CODE_INDEX.md](../CODE_INDEX.md) | APIs, capas, eventos canónicos |
+| 9 | [CODE_INDEX.md](CODE_INDEX.md) | APIs, capas, eventos canónicos |
 
 Índice del paquete de reformulación: [docs/REFORMULACION/README.md](REFORMULACION/README.md).
 

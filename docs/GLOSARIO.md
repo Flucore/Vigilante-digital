@@ -5,7 +5,7 @@
 | Estado | **Canónico** |
 | Versión | 1.1 |
 | Fecha | 2026-08-16 |
-| Espejo en reformulación | [docs/REFORMULACION/03_GLOSARIO.md](docs/REFORMULACION/03_GLOSARIO.md) |
+| Espejo en reformulación | [docs/REFORMULACION/03_GLOSARIO.md](REFORMULACION/03_GLOSARIO.md) |
 | Índice de código | [CODE_INDEX.md](CODE_INDEX.md) |
 | Ejecución | [DESARROLLO_EJECUTABLE.md](DESARROLLO_EJECUTABLE.md) |
 

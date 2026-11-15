@@ -6,7 +6,7 @@
 | Versión | 1.0 |
 | Fecha | 2026-08-16 |
 | Unidad activa por defecto | **C5** |
-| Plan | [MASTER_DEVELOPMENT_PLAN.md](MASTER_DEVELOPMENT_PLAN.md) · [06_PLAN…](docs/REFORMULACION/06_PLAN_DUAL_TRACK.md) |
+| Plan | [MASTER_DEVELOPMENT_PLAN.md](MASTER_DEVELOPMENT_PLAN.md) · [06_PLAN…](REFORMULACION/06_PLAN_DUAL_TRACK.md) |
 | Contexto | [AI_CONTEXT.md](AI_CONTEXT.md) · [GLOSARIO.md](GLOSARIO.md) · [CODE_INDEX.md](CODE_INDEX.md) |
 
 > **Cómo usar:** un chat = una unidad. Pegar el prompt de la sección correspondiente. No mezclar C* con A*.
@@ -208,7 +208,7 @@ PROHIBIDO deploy masivo tras N fotos.
 
 ### A5 / A6 / A7 / A8
 
-Usar plantilla §2 con IDs de [06_PLAN…](docs/REFORMULACION/06_PLAN_DUAL_TRACK.md): recetas M3, servicios lógicos, registry pesos, experimento título.
+Usar plantilla §2 con IDs de [06_PLAN…](REFORMULACION/06_PLAN_DUAL_TRACK.md): recetas M3, servicios lógicos, registry pesos, experimento título.
 
 ---
 
