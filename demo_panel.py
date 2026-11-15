@@ -120,6 +120,7 @@ def main() -> None:
     server, thread, operator_panel = _start_panel(args.host, args.port)
     runner.set_frame_sink(operator_panel.push_frame, max_fps=max_fps)
     runner.set_event_sink(operator_panel.push_event)
+    runner.set_status_sink(operator_panel.push_status)
 
     try:
         if args.esperar:
@@ -158,6 +159,7 @@ def main() -> None:
     finally:
         runner.set_frame_sink(None)
         runner.set_event_sink(None)
+        runner.set_status_sink(None)
         server.should_exit = True
         thread.join(timeout=5.0)
 

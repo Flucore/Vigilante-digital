@@ -168,14 +168,16 @@ class YoloFallDetector:
             window.append(is_falling_now)
             confirmed_fall = len(window) == self.min_fall_frames and all(window)
 
+            # Avance de la ventana (rótulo y panel): solo lee la ventana,
+            # no participa en la decisión.
+            streak = 0
+            for flag in reversed(window):
+                if not flag:
+                    break
+                streak += 1
+
             if draw:
                 color = (0, 0, 255) if confirmed_fall else (0, 255, 0)
-                # Rótulo informativo: solo lee la ventana, no participa en la decisión.
-                streak = 0
-                for flag in reversed(window):
-                    if not flag:
-                        break
-                    streak += 1
                 if confirmed_fall:
                     label = "CAIDA DETECTADA"
                 elif streak:
@@ -195,6 +197,7 @@ class YoloFallDetector:
                     "width": bw, "height": bh,
                     "is_falling": confirmed_fall,
                     "track_id": track_id,
+                    "window_streak": streak,
                 }
 
         return all_lm, primary_bbox

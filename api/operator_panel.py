@@ -5,7 +5,9 @@ Se monta como sub-aplicación sobre el mismo proceso que forensic_api.
 
 Endpoints:
     GET  /operator/                      → UI del panel (operator.html)
-    WS   /operator/ws/live/{camera_id}   → Stream JPEG via WebSocket
+    WS   /operator/ws/live/{camera_id}   → Stream JPEG via WebSocket (cada cuadro
+                                           puede ir precedido de su estado de
+                                           detección como texto JSON)
     GET  /operator/api/cameras/status    → Estado de todas las cámaras
     GET  /operator/api/events/recent     → Eventos recientes (últimos N min)
     POST /operator/api/events/{id}/acknowledge → Operador marca evento como visto
@@ -27,13 +29,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import mimetypes
 import os
 import sys
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -106,8 +109,12 @@ class _OperatorState:
         self._acknowledged: Set[str] = set()
         # Conexiones WebSocket activas por camera_id
         self.ws_clients: Dict[str, Set[WebSocket]] = {}
-        # Último frame JPEG por camera_id
-        self.latest_frames: Dict[str, bytes] = {}
+        # Último cuadro por camera_id: (JPEG, estado de detección o None).
+        # Se guarda como par en una sola asignación para que el WebSocket
+        # nunca lea el cuadro de un instante con el estado de otro.
+        self.latest_frames: Dict[str, Tuple[bytes, Optional[Dict[str, Any]]]] = {}
+        # Estado recibido que espera a su cuadro (llega justo antes que él).
+        self._pending_status: Dict[str, Dict[str, Any]] = {}
         # Medición de cuadros recibidos por camera_id: [inicio_ventana, cuenta]
         self._fps_window: Dict[str, List[float]] = {}
         # Último cuadro recibido por camera_id (reloj monotónico)
@@ -131,8 +138,12 @@ class _OperatorState:
         self._acknowledged.add(event_id)
         return True
 
+    def set_status(self, camera_id: str, status_data: Dict[str, Any]) -> None:
+        self._pending_status[camera_id] = status_data
+
     def set_frame(self, camera_id: str, jpeg_bytes: bytes) -> None:
-        self.latest_frames[camera_id] = jpeg_bytes
+        status_data = self._pending_status.pop(camera_id, None)
+        self.latest_frames[camera_id] = (jpeg_bytes, status_data)
 
     def count_frame(self, camera_id: str) -> Optional[float]:
         """Cuenta un cuadro recibido; cada ~1 s retorna los FPS medidos."""
@@ -180,6 +191,13 @@ operator_app = FastAPI(
 _STATIC_DIR = Path(__file__).parent / "static"
 _STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
+# Fuentes del panel servidas localmente: la UI no hace peticiones a internet.
+_FONTS_DIR = _STATIC_DIR / "fonts"
+if _FONTS_DIR.is_dir():
+    # Windows no siempre registra .woff2; sin esto se sirve como octet-stream.
+    mimetypes.add_type("font/woff2", ".woff2")
+    operator_app.mount("/fonts", StaticFiles(directory=str(_FONTS_DIR)), name="fonts")
+
 
 # ── UI principal ──────────────────────────────────────────────────────────────
 
@@ -218,9 +236,14 @@ async def ws_live_feed(websocket: WebSocket, camera_id: str) -> None:
 
     try:
         while True:
-            # Enviar el último frame disponible
-            jpeg = _state.latest_frames.get(camera_id)
-            if jpeg:
+            # Enviar el último frame disponible. Si trae estado de detección,
+            # va antes como texto JSON: el cliente lo aplica al pintar el
+            # cuadro binario que sigue.
+            packet = _state.latest_frames.get(camera_id)
+            if packet:
+                jpeg, status_data = packet
+                if status_data is not None:
+                    await websocket.send_text(json.dumps(status_data))
                 await websocket.send_bytes(jpeg)
             await asyncio.sleep(1 / 15)  # ~15 FPS al cliente
     except WebSocketDisconnect:
@@ -360,6 +383,14 @@ def push_frame(camera_id: str, frame_bgr: Any) -> None:
             _state.update_camera(camera_id, status="online", fps=fps)
     except Exception as exc:
         LOG.debug("[OperatorPanel] Error comprimiendo frame cam=%s: %s", camera_id, exc)
+
+
+def push_status(camera_id: str, status_data: Dict[str, Any]) -> None:
+    """Recibe el estado de detección del cuadro (runner.py vía set_status_sink).
+
+    Llega justo antes de su cuadro; push_frame lo empareja con él.
+    """
+    _state.set_status(camera_id, dict(status_data))
 
 
 def _to_epoch(value: Any) -> float:

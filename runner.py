@@ -92,6 +92,35 @@ def set_frame_sink(
     _frame_sink_interval = 1.0 / max_fps if max_fps > 0 else 0.0
 
 
+_status_sink: Optional[Callable[[str, Dict[str, Any]], None]] = None
+
+
+def set_status_sink(sink: Optional[Callable[[str, Dict[str, Any]], None]]) -> None:
+    """Registra (o con None, retira) el receptor del estado de detección por cuadro.
+
+    Se llama justo antes del receptor de frames y con su misma cadencia
+    (max_fps de set_frame_sink), para que cada estado acompañe a su cuadro.
+    """
+    global _status_sink
+    _status_sink = sink
+
+
+def _detection_status(metodo: str, ventana: int, bbox: Dict[str, Any]) -> Dict[str, Any]:
+    """Estado de detección del cuadro para el panel. Solo lee; no decide nada.
+
+    Con "bbox" no hay ventana: ventana y avance van en None.
+    """
+    confirmed = resolve_is_falling(bbox)[0] if bbox else False
+    if metodo == "bbox":
+        return {"metodo": "bbox", "ventana": None, "avance": None, "confirmada": confirmed}
+    return {
+        "metodo": "pose",
+        "ventana": ventana,
+        "avance": int(bbox.get("window_streak", 0)) if bbox else 0,
+        "confirmada": confirmed,
+    }
+
+
 _event_sink: Optional[Callable[[Dict[str, Any]], None]] = None
 
 
@@ -1058,6 +1087,12 @@ def run_file(
             # interrumpe el procesamiento.
             if _frame_sink is not None and c_time - last_sink_ts >= _frame_sink_interval:
                 last_sink_ts = c_time
+                # El estado va primero: el panel lo empareja con este cuadro.
+                if _status_sink is not None and primary_module == "fall_detection":
+                    try:
+                        _status_sink(cam.id, _detection_status(metodo, ventana, bbox))
+                    except Exception as exc:
+                        LOG.debug("Panel de operador no recibió el estado: %s", exc)
                 try:
                     _frame_sink(cam.id, proc_frame)
                 except Exception as exc:
