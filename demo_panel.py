@@ -50,6 +50,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Repite el video indefinidamente (para narrar sobre el panel).",
     )
+    p.add_argument(
+        "--esperar",
+        action="store_true",
+        help="Levanta el panel y espera Enter en la terminal antes de procesar.",
+    )
     p.add_argument("--host", default="127.0.0.1", help="Interfaz del panel (default: solo local).")
     p.add_argument("--port", type=int, default=8000)
     return p
@@ -88,6 +93,18 @@ def _start_panel(host: str, port: int):
     return server, thread, operator_panel
 
 
+def _camera_id(loader: ConfigLoader, override: str | None) -> str | None:
+    """Cámara que usará run_file: la indicada con --cam o la primera habilitada."""
+    cameras = loader.get_cameras()
+    if not cameras:
+        return None
+    if override:
+        found = next((c for c in cameras if c.id == override), None)
+        if found:
+            return found.id
+    return cameras[0].id
+
+
 def main() -> None:
     args = _build_parser().parse_args()
 
@@ -105,6 +122,19 @@ def main() -> None:
     runner.set_event_sink(operator_panel.push_event)
 
     try:
+        if args.esperar:
+            # El panel ya sirve en su hilo: se muestra la cámara, aún sin feed.
+            cam_id = _camera_id(loader, args.cam)
+            if cam_id:
+                operator_panel.register_camera(cam_id)
+            url = f"http://{args.host}:{args.port}/operator/"
+            print(f"Panel listo en {url}. Presiona Enter para iniciar el procesamiento.",
+                  flush=True)
+            try:
+                input()
+            except EOFError:
+                LOG.warning("Sin entrada estándar: se inicia el procesamiento sin esperar.")
+
         runner.run_file(
             loader,
             args.source,

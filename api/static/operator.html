@@ -38,13 +38,14 @@
   .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
   .section-title { font-size: .8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   /* auto-fit colapsa las columnas vacías: con pocas cámaras cada tarjeta crece */
-  .camera-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-content: start; gap: 10px; overflow-y: auto; flex: 1; }
-  .cam-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; }
+  /* --feed-max-h: alto máximo del video para que la tarjeta no salga de la pantalla */
+  .camera-grid { --feed-max-h: calc(100vh - 170px); display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-content: start; gap: 10px; overflow-y: auto; flex: 1; }
+  /* La tarjeta toma el ancho del video: --ar (ancho/alto) se fija con el primer cuadro */
+  .cam-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; width: min(100%, calc(var(--feed-max-h) * var(--ar, 1.3333))); justify-self: start; align-self: start; }
   .cam-card.alert { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
-  /* max-height: una tarjeta sola no debe salirse del alto visible */
-  .cam-feed { width: 100%; aspect-ratio: 16/9; max-height: calc(100vh - 170px); background: #000; display: flex; align-items: center; justify-content: center; position: relative; }
-  /* contain: no recorta el cuadro (video 4:3 en caja 16:9 conserva el HUD) */
-  .cam-feed canvas { width: 100%; height: 100%; object-fit: contain; }
+  .cam-feed { width: 100%; background: #000; position: relative; }
+  /* Misma proporción que el video: se ve completo, sin recorte ni franjas */
+  .cam-feed canvas { display: block; width: 100%; height: auto; aspect-ratio: var(--ar, 4 / 3); }
   .cam-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
   .cam-status-dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
   .cam-status-dot.offline { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
@@ -321,6 +322,11 @@ function connectWS(cameraId) {
     const url  = URL.createObjectURL(blob);
     const img  = new Image();
     img.onload = () => {
+      if (canvas.width !== img.width || canvas.height !== img.height) {
+        // Proporción real del video para dimensionar la tarjeta (CSS --ar)
+        const card = document.getElementById('cam-card-' + cameraId);
+        if (card) card.style.setProperty('--ar', img.width / img.height);
+      }
       canvas.width  = img.width;
       canvas.height = img.height;
       canvas.getContext('2d').drawImage(img, 0, 0);

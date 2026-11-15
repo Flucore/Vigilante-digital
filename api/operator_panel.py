@@ -189,7 +189,8 @@ async def operator_ui() -> FileResponse:
     html = _STATIC_DIR / "operator.html"
     if not html.exists():
         raise HTTPException(status_code=404, detail="operator.html no encontrado.")
-    return FileResponse(str(html))
+    # no-cache: el navegador revalida siempre y no muestra una versión vieja.
+    return FileResponse(str(html), headers={"Cache-Control": "no-cache"})
 
 
 # ── WebSocket: stream de frames en vivo ──────────────────────────────────────
@@ -396,6 +397,14 @@ def push_event(event: Dict[str, Any]) -> None:
     if cam:
         alerts = _state.cameras.get(cam, {}).get("alerts", 0)
         _state.update_camera(cam, alerts=alerts + 1)
+
+
+def register_camera(camera_id: str, status: str = "esperando") -> None:
+    """Registra una cámara en el panel antes de que lleguen cuadros.
+
+    Con el primer push_frame el estado pasa a "online".
+    """
+    _state.update_camera(camera_id, status=status, fps=0)
 
 
 def mark_camera_offline(camera_id: str) -> None:
