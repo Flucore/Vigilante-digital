@@ -75,7 +75,7 @@ Editar el archivo `demo_config.json`:
 
 **Atajo**: también puedes pasar las IPs directamente al .bat:
 ```
-start_demo.bat 192.168.1.101 192.168.1.102
+scripts\start_demo.bat 192.168.1.101 192.168.1.102
 ```
 
 ### Paso 4 — Probar las URLs antes de la presentación
@@ -89,7 +89,7 @@ Si no carga: verificar que estén en la misma red WiFi.
 ### Paso 5 — Iniciar el demo
 
 ```powershell
-# Doble-clic en start_demo.bat
+# Doble-clic en scripts\start_demo.bat
 # O desde PowerShell:
 python scripts/demo_2cam.py
 ```

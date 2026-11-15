@@ -52,6 +52,7 @@ GOOGLE_APPLICATION_CREDENTIALS
 
 # Cache de Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.so
@@ -119,13 +120,13 @@ reports/
 # ===== Rama academica =====
 # Videos del gold-set fuera, etiquetas y resultados dentro
 !/data/labels.csv
+!/data/urfall-cam0-falls.csv
 !/data/goldset/
 /data/goldset/*
 !/data/goldset/.gitkeep
-!/results/
-!/results/*.csv
-!/results/*.png
-!/results/*.md
+# Los resultados del experimento se versionan en eval/resultados*/;
+# results/ de la raíz quedó sin uso.
+/results/
 
 !/.vscode/settings.json
 !/.vscode/extensions.json

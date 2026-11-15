@@ -1,4 +1,0 @@
-# El .gitignore raíz excluye *.json; la configuración del agente sí se versiona.
-!config.json
-# Trazas generadas en cada ejecución
-salida/

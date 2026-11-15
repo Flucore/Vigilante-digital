@@ -17,8 +17,8 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-:: Ir al directorio raíz del proyecto (donde está este .bat)
-cd /d "%~dp0"
+:: Ir al directorio raíz del proyecto (este .bat vive en scripts/)
+cd /d "%~dp0.."
 
 :: Verificar dependencias críticas
 echo [VERIFICANDO] Dependencias...
@@ -43,7 +43,7 @@ echo ============================================================
 echo.
 
 :: Opción para cambiar URLs rápido desde la línea de comandos
-:: Ejemplo: start_demo.bat 192.168.1.5 192.168.1.6
+:: Ejemplo: scripts\start_demo.bat 192.168.1.5 192.168.1.6
 set CAM1_IP=%1
 set CAM2_IP=%2
 

@@ -63,7 +63,7 @@ Cómo se preparó y etiquetó:
    la etiqueta del nombre del archivo: `fall` → `caida`, `adl` → `no_caida`.
 3. **Inicio de la caída.** `scripts/anotar_desde_urfall.py` completa
    `inicio_caida_s` a partir de las etiquetas por frame que publica UR Fall
-   (`urfall-cam0-falls.csv`): toma el primer frame marcado como pose
+   (`data/urfall-cam0-falls.csv`): toma el primer frame marcado como pose
    transitoria (etiqueta 0) o, si no lo hay, el primer frame en el suelo
    (etiqueta 1), y lo convierte a segundos con los fps del clip. Los 30 clips
    de caída tienen inicio anotado.
@@ -71,10 +71,10 @@ Cómo se preparó y etiquetó:
 ```powershell
 python scripts/preparar_clips.py data/urfall_original data/goldset
 python scripts/generar_labels.py data/goldset data/labels.csv
-python scripts/anotar_desde_urfall.py urfall-cam0-falls.csv data/labels.csv data/goldset
+python scripts/anotar_desde_urfall.py data/urfall-cam0-falls.csv data/labels.csv data/goldset
 ```
 
-`data/labels.csv` y `urfall-cam0-falls.csv` están versionados. Los videos no:
+`data/labels.csv` y `data/urfall-cam0-falls.csv` están versionados. Los videos no:
 hay que descargarlos de UR Fall y dejarlos en `data/urfall_original/`.
 
 ---
@@ -220,7 +220,7 @@ riesgo de alterar, sin querer, las condiciones bajo las que se midió.
   Cambiarlos invalidaría los resultados ya versionados.
 - **El criterio `bbox` no se ajusta:** es la referencia contra la que se
   compara; mejorarlo cambiaría la pregunta.
-- **Descartado:** la carpeta `agente/`.
+- **Descartado:** el prototipo `agente/`, ya eliminado del repositorio.
 - **Los otros módulos** (`perimeter`, `geofence`, `aqua`) y las integraciones
   opcionales (Firebase, email, reportes PDF) vienen de una etapa anterior del
   proyecto y no forman parte del experimento.

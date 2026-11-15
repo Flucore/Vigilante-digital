@@ -5,7 +5,7 @@ y toma como inicio de la caída el primer frame con etiqueta 0 (pose transitoria
 Si una secuencia no tiene etiqueta 0, usa el primer frame con etiqueta 1.
 
 Uso:
-    python scripts/anotar_desde_urfall.py urfall-cam0-falls.csv data/labels.csv data/goldset
+    python scripts/anotar_desde_urfall.py data/urfall-cam0-falls.csv data/labels.csv data/goldset
 """
 from __future__ import annotations
 
