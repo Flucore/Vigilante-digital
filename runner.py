@@ -705,6 +705,7 @@ def run_file(
     modulo: Optional[str] = None,
     loop: bool = False,
     show_progress: bool = True,
+    stop_event: Optional[threading.Event] = None,
 ) -> List[Dict[str, Any]]:
     """Procesa un archivo de video MP4 con barra de progreso.
 
@@ -727,6 +728,10 @@ def run_file(
     evaluación); termina con q/ESC o Ctrl+C.
 
     show_progress: si False, no se dibuja la barra de progreso del archivo.
+
+    stop_event: si se entrega y se activa, el procesamiento termina antes del
+    siguiente frame y cierra el episodio abierto (uso desde otro hilo, donde
+    Ctrl+C no llega).
     """
     if metodo not in ("bbox", "pose"):
         raise ValueError(f"metodo desconocido: {metodo!r} (válidos: bbox | pose)")
@@ -856,6 +861,8 @@ def run_file(
 
     try:
         while True:
+            if stop_event is not None and stop_event.is_set():
+                break
             if paused:
                 key = cv2.waitKey(30) & 0xFF
                 if key == ord(" "):

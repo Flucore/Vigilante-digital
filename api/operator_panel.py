@@ -430,12 +430,18 @@ def push_event(event: Dict[str, Any]) -> None:
         _state.update_camera(cam, alerts=alerts + 1)
 
 
-def register_camera(camera_id: str, status: str = "esperando") -> None:
+def register_camera(
+    camera_id: str,
+    status: str = "esperando",
+    name: str = "",
+    zone: str = "",
+) -> None:
     """Registra una cámara en el panel antes de que lleguen cuadros.
 
+    name y zone vienen del config y el panel los muestra junto al id.
     Con el primer push_frame el estado pasa a "online".
     """
-    _state.update_camera(camera_id, status=status, fps=0)
+    _state.update_camera(camera_id, status=status, fps=0, name=name, zone=zone)
 
 
 def mark_camera_offline(camera_id: str) -> None:

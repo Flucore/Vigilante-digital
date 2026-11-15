@@ -383,6 +383,7 @@ function renderCameras(list) {
   // Quitar el mensaje provisorio ("Conectando..." / "Sin cámaras...")
   grid.querySelectorAll(':scope > :not(.cam)').forEach(el => el.remove());
   list.forEach(cam => {
+    cameras[cam.id] = cam;
     let card = document.getElementById('cam-card-' + cam.id);
     if (!card) {
       card = createCameraCard(cam);
@@ -401,10 +402,11 @@ function createCameraCard(cam) {
     <section class="feed" id="feed-${esc(cam.id)}">
       <div class="screen"><canvas id="canvas-${esc(cam.id)}"></canvas></div>
       <div class="feed-foot">
-        <span class="cam-name">${esc(cam.id)}</span>
+        <span class="cam-name" title="${esc(cam.id)}">${esc(cam.name || cam.id)}</span>
         <span class="foot-sep"></span>
-        <span class="cam-where"><span class="dot" id="dot-${esc(cam.id)}"></span><span id="status-${esc(cam.id)}">${esc(cam.status || 'online')}</span></span>
+        <span class="cam-where">${esc(cam.zone || cam.id)}</span>
         <div class="foot-right">
+          <span class="cam-where"><span class="dot" id="dot-${esc(cam.id)}"></span><span id="status-${esc(cam.id)}">${esc(cam.status || 'online')}</span></span>
           <span class="metric"><b id="fps-${esc(cam.id)}">--</b> fps</span>
           <span class="metric" id="res-${esc(cam.id)}">—</span>
         </div>
@@ -557,7 +559,17 @@ async function refreshEvents() {
 }
 
 function formatSeconds(s) {
+  // Un episodio de un solo cuadro dura ~0,03 s: redondeado diría "0,0 s".
+  if (Number(s) < 0.1) return 'menos de 0,1 s';
   return Number(s).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' s';
+}
+
+// Nombre de la cámara (del config, vía /api/cameras/status) y zona del evento.
+function eventWhere(evt) {
+  const cam = cameras[evt.camera_id] || {};
+  const name = cam.name || evt.camera_id || '—';
+  const zone = evt.zone || cam.zone;
+  return zone ? name + ' · ' + zone : name;
 }
 
 function renderEvents(events) {
@@ -588,7 +600,7 @@ function renderEvents(events) {
         <span class="ev-type">${esc(evt.event_type || 'Evento')}</span>
         <span class="ev-time">${esc(ts)}</span>
       </div>
-      <div class="ev-where">${esc(evt.camera_id || '—')}</div>
+      <div class="ev-where" title="${esc(evt.camera_id || '')}">${esc(eventWhere(evt))}</div>
       ${meta.length ? `<div class="ev-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : ''}
       <div class="ev-foot">
         ${!evt.acknowledged

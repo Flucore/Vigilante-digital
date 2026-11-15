@@ -2,7 +2,7 @@
   "_schema_version": "2.0",
   "_client_id": "demo_panel",
   "_client_name": "Demo panel de operador",
-  "_comment": "Config de demo para demo_panel.py, derivada de eval/config_eval.json con los mismos umbrales de deteccion. Sin secretos. Una camara en fall_detection, sin triggers ni indexacion.",
+  "_comment": "Config de demo para demo_panel.py, derivada de eval/config_eval.json con los mismos umbrales de deteccion. Sin secretos. Cuatro camaras en fall_detection (demo_panel.py asigna un video a cada una, en este orden), sin triggers ni indexacion.",
   "schedule": {
     "timezone": "America/Santiago",
     "work_days": [0, 1, 2, 3, 4, 5, 6],
@@ -30,6 +30,39 @@
       "name": "Pasillo de hospitalizacion",
       "stream_url": "",
       "zone": "Pasillo central",
+      "sector": "Salud Mental",
+      "enabled": true,
+      "modules_active": ["fall_detection"],
+      "alert_level_after_hours": 2,
+      "zones": []
+    },
+    {
+      "id": "CAM_SALA_COMUN",
+      "name": "Sala comun",
+      "stream_url": "",
+      "zone": "Sala de estar",
+      "sector": "Salud Mental",
+      "enabled": true,
+      "modules_active": ["fall_detection"],
+      "alert_level_after_hours": 2,
+      "zones": []
+    },
+    {
+      "id": "CAM_DORMITORIO_1",
+      "name": "Dormitorio 1",
+      "stream_url": "",
+      "zone": "Ala norte",
+      "sector": "Salud Mental",
+      "enabled": true,
+      "modules_active": ["fall_detection"],
+      "alert_level_after_hours": 2,
+      "zones": []
+    },
+    {
+      "id": "CAM_DORMITORIO_2",
+      "name": "Dormitorio 2",
+      "stream_url": "",
+      "zone": "Ala norte",
       "sector": "Salud Mental",
       "enabled": true,
       "modules_active": ["fall_detection"],
