@@ -2,7 +2,6 @@
 *.json
 !requirements.txt
 !package.json
-!demo_config.json
 !client_config.example.json
 !client_config.*.example.json
 !eval/config_eval.json

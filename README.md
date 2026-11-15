@@ -153,7 +153,7 @@ py -3.12 -m venv .venv          # Python 3.12: PyTorch no es compatible con 3.13
 pip install -r requirements.txt
 copy .env.example .env
 # Completar placeholders locales — NUNCA subir .env ni client_config.json real
-copy client_config.example.json client_config.json   # o client_config.aqua.example.json
+copy client_config.example.json client_config.json   # plantilla con fall_detection
 python runner.py --mode file --source TU_VIDEO.mp4
 ```
 

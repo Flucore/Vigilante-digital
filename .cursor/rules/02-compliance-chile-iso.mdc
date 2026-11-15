@@ -12,7 +12,7 @@ alwaysApply: true
 - Requiere **consentimiento informado** o base legal legítima (seguridad, contrato)
 - Obligación de informar al titular de los datos (cartelería visible)
 - Derecho de acceso, rectificación y eliminación
-- **Implementar**: retención máxima configurable en `demo_config.json` → `data_retention_days`
+- **Implementar**: retención máxima configurable en `client_config.example.json` → `data_retention_days`
 
 ### Ley 19.303 — Seguridad Privada
 - Sistemas de vigilancia en instalaciones privadas regulados por OS10 (Carabineros)

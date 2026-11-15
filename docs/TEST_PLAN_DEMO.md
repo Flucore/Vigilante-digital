@@ -49,6 +49,8 @@ Criterio de éxito:
 
 ## Prueba 2 — Cámaras IP conectadas
 
+> **HISTÓRICO.** `scripts/demo_2cam.py`, `demo_config.json` y `scripts/start_demo.bat` se eliminaron el 2026-11-14; esta prueba ya no se puede ejecutar. El demo vigente es `demo_panel.py` (ver `README.md` de la raíz).
+
 1. Abrir IP Webcam en cada celular.
 2. Configurar URLs en `demo_config.json`.
 3. Ejecutar:

@@ -17,7 +17,7 @@ La ley establece que las imágenes de personas constituyen **datos personales**.
 
 | Obligación | Requisito | Implementación en el sistema |
 |---|---|---|
-| Finalidad declarada | El sistema solo puede usarse para el fin declarado (seguridad) | `demo_config.json` → campo `purpose` |
+| Finalidad declarada | El sistema solo puede usarse para el fin declarado (seguridad) | `client_config.json` → campo `purpose` |
 | Información al titular | Cartelería visible en zona vigilada | Cartelería física (fuera del software) |
 | Plazo de conservación | No superior al necesario para la finalidad | `config.DATA_RETENTION_DAYS` (default 30) |
 | Seguridad de los datos | Proteger contra acceso no autorizado | Logs en EventLogger, Firebase con auth |

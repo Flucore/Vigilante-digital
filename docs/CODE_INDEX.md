@@ -51,7 +51,6 @@ VigilanteDigital_1.0/
 │       └── forensic_ui.html    Dashboard de búsqueda forense (vanilla JS)
 │
 ├── scripts/                    Scripts de demo, batch y utilitarios
-│   ├── demo_2cam.py            Demo 2 cámaras IP con UI split-view
 │   ├── batch_processor.py      Pipeline batch: MP4 → ForensicDB
 │   ├── run_ipcam.py            Runner de cámara IP simple
 │   ├── run_test.py             Script de prueba
@@ -604,9 +603,6 @@ python scripts/batch_processor.py --source grabaciones/
 
 # Iniciar API forense
 uvicorn api.forensic_api:app --reload --port 8000
-
-# Demo 2 cámaras (modo legacy compatible)
-python scripts/demo_2cam.py --config demo_config.json
 
 # Aplicar esquema SQL
 psql -U postgres -d vigilante -f outputs/forensic_schema.sql

@@ -40,4 +40,4 @@ is_falling = bbox.get("is_falling", False)    # YoloFallDetector
 - [ ] Archivo en `core/<nombre>_detector.py`
 - [ ] Clase con `find_pose()` y/o método `update()` + `draw()`
 - [ ] Registrado en `detector_factory.py`
-- [ ] Agregado como opción de módulo en `demo_config.json`
+- [ ] Agregado como opción de módulo en `client_config.example.json`

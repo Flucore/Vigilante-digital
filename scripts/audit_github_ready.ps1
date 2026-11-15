@@ -91,7 +91,7 @@ if ($secretMatches.Count -gt 0) {
     Add-Ok "No high-confidence secret tokens found in tracked text files."
 }
 
-$ignoredRequired = @("demo_config.json")
+$ignoredRequired = @("client_config.example.json")
 foreach ($required in $ignoredRequired) {
     if ((Test-Path $required) -and (git check-ignore -q $required)) {
         Add-Failure "$required is ignored but should be publishable as a safe sample config."

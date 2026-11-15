@@ -36,7 +36,7 @@ Una cámara con IA ve clases. Vigilante Digital acumula **criterio de este sitio
 │              │  LearningDataset │  Report/Email/HUD         │
 │              │  (semilla HITL)  │  api/ forensic + operator │
 └──────────────┴──────────────────┴───────────────────────────┘
-         config.py + client_config / demo_config + .env
+         config.py + client_config + .env
 ```
 
 **Reglas de importación (inamovibles):**

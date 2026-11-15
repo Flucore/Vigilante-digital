@@ -24,9 +24,9 @@ Una línea por documento. `README.md` y `CLAUDE.md` están en la raíz del repos
 - [PRODUCT_VISION_AND_SCALE.md](PRODUCT_VISION_AND_SCALE.md) — Visión de producto y estrategia de escala.
 - [PROTOCOLO_GITHUB.md](PROTOCOLO_GITHUB.md) — Protocolo de colaboración del equipo en GitHub, sin secretos.
 - [QUICKSTART.md](QUICKSTART.md) — Guía rápida de inicio: instalación, ejecución de `runner.py` y limpieza de Firestore.
-- [README_DEMO.md](README_DEMO.md) — Preparación y guion del demo ejecutivo de dos cámaras.
+- [README_DEMO.md](README_DEMO.md) — Histórico: guion del demo ejecutivo de dos cámaras (demo eliminado).
 - [SEGMENTATION_STRATEGY.md](SEGMENTATION_STRATEGY.md) — Estrategia de segmentación de mercado.
-- [TEST_PLAN_DEMO.md](TEST_PLAN_DEMO.md) — Plan de pruebas de la maqueta: caída, polera roja y luz de semáforo.
+- [TEST_PLAN_DEMO.md](TEST_PLAN_DEMO.md) — Plan de pruebas de la maqueta: caída, polera roja y luz de semáforo (la prueba con cámaras IP es histórica).
 - [TESTING.md](TESTING.md) — Guía de pruebas locales sobre video MP4 y captura de métricas.
 - [THREAT_MODEL.md](THREAT_MODEL.md) — Modelo de amenazas (STRIDE, ISO 27001, OWASP API).
 - [V2_SUMMARY.md](V2_SUMMARY.md) — Histórico: resumen de la versión 2.0 y la optimización con EventLogger.

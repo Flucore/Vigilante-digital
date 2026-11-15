@@ -1,5 +1,7 @@
 # README — Demo Ejecutivo Vigilante Digital IA
 
+> **HISTÓRICO.** `scripts/demo_2cam.py`, `demo_config.json` y `scripts/start_demo.bat` se eliminaron el 2026-11-14; esta guía ya no se puede ejecutar. El demo vigente es `demo_panel.py` (ver `README.md` de la raíz).
+
 **Para presentación a empresa de seguridad — PC gamer con GPU**
 
 ---
