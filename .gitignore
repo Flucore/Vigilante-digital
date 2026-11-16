@@ -129,3 +129,6 @@ reports/
 
 !/.vscode/settings.json
 !/.vscode/extensions.json
+
+# Conjunto de validacion completo
+!/data/goldset/*.mp4
