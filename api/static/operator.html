@@ -92,6 +92,37 @@ button{font-family:inherit}
   min-width:0;min-height:0;padding:20px;gap:20px;overflow-y:auto;
 }
 .cam{display:flex;flex-direction:column;min-width:0;min-height:0}
+
+/* ── Vista expandida ─────────────────────────────────────
+   Solo cambia clases y posición en la grilla: las tarjetas (y sus canvas)
+   no se mueven en el DOM, así los WebSocket siguen pintando sin reconectar.
+   --others lo fija applyLayout() con el número de cámaras de la tira. */
+.stage.expanded{
+  grid-template-columns:minmax(0,1fr) 280px;
+  grid-auto-rows:minmax(0,1fr);
+}
+.stage.expanded .cam.is-focus{grid-column:1;grid-row:1 / span var(--others,3)}
+.stage.expanded .cam:not(.is-focus){grid-column:2}
+.stage.expanded .cam:not(.is-focus) .screen{min-height:0}
+.stage.expanded .cam:not(.is-focus) .feed-head .right,
+.stage.expanded .cam:not(.is-focus) .gauge{display:none}
+.stage.expanded .cam:not(.is-focus) .detect{grid-template-columns:1fr;padding:10px 12px}
+.stage.expanded .cam:not(.is-focus) .feed-head{padding:7px 10px}
+.stage.expanded .cam:not(.is-focus) .tag{font-size:12px}
+.stage.expanded .cam:not(.is-focus) .tag .sep,
+.stage.expanded .cam:not(.is-focus) .tag .zone{display:none}
+.screen{cursor:zoom-in}
+.screen:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.stage.expanded .cam.is-focus .screen{cursor:zoom-out}
+.back{
+  display:none;cursor:pointer;flex:none;
+  align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--ink);
+  background:var(--raised);border:1px solid var(--line-2);border-radius:8px;padding:4px 10px;
+}
+.back:hover{background:var(--hover)}
+.back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stage.expanded .cam.is-focus .back{display:inline-flex}
+
 .side{
   display:flex;flex-direction:column;min-height:0;gap:16px;
   padding:20px 20px 0 0;
@@ -115,28 +146,26 @@ button{font-family:inherit}
 /* El video se ve completo, en su proporción, sin recorte */
 .screen canvas{width:100%;height:100%;display:block;object-fit:contain}
 
-/* Rótulos flotantes sobre el video */
-.overlay{
-  position:absolute;left:12px;right:12px;top:12px;
-  display:flex;align-items:flex-start;gap:8px;pointer-events:none;
+/* Barra de la cámara: va arriba del video, no encima, para no tapar
+   el HUD que el pipeline pinta en el propio cuadro. */
+.feed-head{
+  flex:none;display:flex;align-items:center;gap:10px;min-width:0;
+  padding:9px 12px 9px 14px;border-bottom:1px solid var(--line);
 }
 .tag{
-  display:inline-flex;align-items:center;gap:8px;
-  background:rgba(9,12,16,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  border:1px solid var(--line-2);border-radius:10px;
-  padding:6px 11px;font-size:12.5px;color:var(--ink-2);white-space:nowrap;
-  max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  display:inline-flex;align-items:center;gap:8px;min-width:0;
+  font-size:12.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;
 }
-.tag .cam-name{color:var(--ink);font-weight:600;font-size:13px}
-.tag .sep{width:1px;height:12px;background:var(--line-2)}
-.overlay .right{margin-left:auto}
+.tag .cam-name{color:var(--ink);font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.tag .sep{width:1px;height:12px;background:var(--line-2);flex:none}
+.feed-head .right{margin-left:auto;flex:none}
 .tag .metric{font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums}
 .tag .metric b{color:var(--ink);font-weight:500}
 
 /* ── Estado de detección (pie de la tarjeta) ────────────── */
 .detect{
   flex:none;border-top:1px solid var(--line);padding:14px 16px;
-  display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;
+  display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;
 }
 .state-chip{
   display:inline-flex;align-items:center;gap:8px;
@@ -159,10 +188,6 @@ button{font-family:inherit}
 .tick{flex:1;height:6px;border-radius:999px;background:var(--raised);transition:background .12s}
 .tick.on{background:var(--warn)}
 .tick.full{background:var(--alert)}
-.instant{font-size:12.5px;color:var(--ink-2)}
-.method{text-align:right;white-space:nowrap}
-.method .k{font-size:11px;color:var(--ink-3);display:block}
-.method .v{font-family:var(--font-mono);font-size:12.5px;color:var(--accent)}
 
 /* ── Barra lateral ──────────────────────────────────────── */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:none}
@@ -208,7 +233,26 @@ button{font-family:inherit}
 .ev.sev-1::before{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
 .ev.sev-2{background:var(--alert-soft);border-color:rgba(238,90,82,.25)}
 .ev.sev-2::before{background:var(--alert);box-shadow:0 0 0 3px var(--alert-soft)}
-.ev.acked{opacity:.5;background:transparent;border-color:transparent}
+/* Atendidas: una sola línea, atenuada, debajo de las pendientes */
+.ev.acked{
+  padding:6px 12px 6px 28px;color:var(--ink-3);cursor:pointer;
+  background:transparent;border-color:transparent;
+}
+.ev.acked:hover{background:var(--raised);color:var(--ink-2)}
+.ev.acked::before{
+  content:"✓";top:6px;left:11px;width:auto;height:auto;border-radius:0;
+  background:none;box-shadow:none;font-size:11px;color:var(--ok);
+}
+.ev.acked .ev-head{gap:8px;min-width:0}
+.ev.acked .ev-type{font-size:12.5px;font-weight:500;color:inherit}
+.ev.acked .ev-where{margin:0;font-size:12px;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ev.acked .ev-time{font-size:11.5px;flex:none}
+.ev-group{
+  display:flex;align-items:center;gap:8px;
+  font-size:11.5px;font-weight:500;color:var(--ink-3);margin:8px 4px 2px;
+}
+.ev-group:first-child{margin-top:0}
+.ev-group::after{content:"";flex:1;height:1px;background:var(--line)}
 .ev-head{display:flex;align-items:baseline;gap:10px}
 .ev-type{font-weight:600;font-size:13.5px}
 .ev-time{margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
@@ -218,7 +262,15 @@ button{font-family:inherit}
   font-family:var(--font-mono);font-size:11px;color:var(--ink-2);
   background:var(--bg);border-radius:6px;padding:2px 7px;
 }
-.ev-foot{display:flex;margin-top:9px}
+.ev-foot{display:flex;align-items:center;gap:8px;margin-top:9px}
+.view-cam{
+  appearance:none;cursor:pointer;font-size:12px;font-weight:500;
+  background:transparent;color:var(--accent);
+  border:1px solid rgba(76,194,211,.35);border-radius:8px;padding:5px 11px;
+}
+.view-cam:hover{background:var(--accent-soft)}
+.view-cam:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view-cam[disabled]{color:var(--ink-3);border-color:var(--line);cursor:default;background:transparent}
 .ack{
   appearance:none;cursor:pointer;font-size:12px;font-weight:500;
   background:var(--accent);color:#04191C;
@@ -303,9 +355,11 @@ button{font-family:inherit}
   .stage{grid-template-columns:1fr;grid-auto-rows:auto;padding:16px;overflow:visible}
   .screen{min-height:0;aspect-ratio:4/3;flex:none}
   .detect{grid-template-columns:1fr;gap:12px}
-  .method{text-align:left}
   .log{max-height:420px}
-  .overlay .right{display:none}
+  .feed-head .right{display:none}
+  .stage.expanded{grid-template-columns:1fr}
+  .stage.expanded .cam.is-focus{grid-column:auto;grid-row:auto;order:-1}
+  .stage.expanded .cam:not(.is-focus){grid-column:auto}
 }
 </style>
 </head>
@@ -322,7 +376,7 @@ button{font-family:inherit}
     </div>
     <h2 id="tokenTitle">Autenticación requerida</h2>
     <p>Ingresa el token de acceso del nodo.</p>
-    <input type="password" id="tokenInput" placeholder="Bearer token" autocomplete="off"
+    <input type="password" id="tokenInput" placeholder="Token de acceso" autocomplete="off"
            onkeydown="if(event.key==='Enter')saveToken()">
     <button onclick="saveToken()">Ingresar</button>
   </div>
@@ -479,6 +533,7 @@ function renderCameras(list) {
   if (!list.length) {
     grid.innerHTML = '<div class="empty"><div class="big">Sin cámaras registradas</div>' +
                      '<div class="small">Inicia runner.py para comenzar.</div></div>';
+    applyLayout();
     return;
   }
   // Quitar el mensaje provisorio ("Conectando..." / "Sin cámaras...")
@@ -493,7 +548,66 @@ function renderCameras(list) {
     updateCameraCard(card, cam);
     if (!wsMap[cam.id]) connectWS(cam.id);
   });
+  applyLayout();  // por si aparece una cámara nueva con la vista expandida
 }
+
+// ── Vista expandida ──
+// Solo alterna clases: las tarjetas no se recrean ni se mueven en el DOM,
+// de modo que los canvas y sus WebSocket siguen intactos.
+let focusedCam = null;   // camera_id expandida, o null en la grilla
+
+function applyLayout() {
+  const grid  = document.getElementById('cameraGrid');
+  const cards = grid.querySelectorAll(':scope > .cam');
+  // Con una sola cámara (o la expandida ya no existe) no hay tira que mostrar.
+  if (focusedCam && (cards.length < 2 || !document.getElementById('cam-card-' + focusedCam))) {
+    focusedCam = null;
+  }
+  grid.classList.toggle('expanded', !!focusedCam);
+  grid.style.setProperty('--others', Math.max(1, cards.length - 1));
+  cards.forEach(c => c.classList.toggle('is-focus', c.id === 'cam-card-' + focusedCam));
+}
+
+function expandCamera(cameraId) {
+  focusedCam = cameraId;
+  applyLayout();
+}
+
+function collapseCameras() {
+  focusedCam = null;
+  applyLayout();
+}
+
+// Clic en una cámara: la expande; clic en la expandida: vuelve a la grilla.
+function toggleCamera(cameraId) {
+  if (focusedCam === cameraId) collapseCameras();
+  else expandCamera(cameraId);
+}
+
+function cameraIdOf(el) {
+  const card = el.closest('.cam');
+  return card ? card.id.slice('cam-card-'.length) : null;
+}
+
+document.getElementById('cameraGrid').addEventListener('click', (e) => {
+  if (e.target.closest('[data-role="back"]')) { collapseCameras(); return; }
+  const screen = e.target.closest('.screen');
+  if (screen) toggleCamera(cameraIdOf(screen));
+});
+
+document.getElementById('cameraGrid').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (!e.target.classList.contains('screen')) return;
+  e.preventDefault();
+  toggleCamera(cameraIdOf(e.target));
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !focusedCam) return;
+  // Esc en el modal del token no debe tocar la vista de cámaras.
+  if (!document.getElementById('tokenModal').classList.contains('hidden')) return;
+  collapseCameras();
+});
 
 function createCameraCard(cam) {
   const card = document.createElement('div');
@@ -501,23 +615,26 @@ function createCameraCard(cam) {
   card.id = 'cam-card-' + cam.id;
   card.innerHTML = `
     <section class="feed" id="feed-${esc(cam.id)}">
-      <div class="screen">
+      <div class="feed-head">
+        <span class="tag">
+          <span class="dot" id="dot-${esc(cam.id)}"></span>
+          <span class="cam-name" title="${esc(cam.id)}">${esc(cam.name || cam.id)}</span>
+          <span class="sep"></span>
+          <span class="zone">${esc(cam.zone || cam.id)}</span>
+        </span>
+        <span class="tag right">
+          <span id="status-${esc(cam.id)}">${esc(statusLabel(cam.status))}</span>
+          <span class="sep"></span>
+          <span class="metric"><b id="fps-${esc(cam.id)}">--</b> fps</span>
+        </span>
+        <button class="back" type="button" data-role="back">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+          Volver
+        </button>
+      </div>
+      <div class="screen" tabindex="0" role="button"
+           aria-label="Expandir o reducir ${esc(cam.name || cam.id)}">
         <canvas id="canvas-${esc(cam.id)}"></canvas>
-        <div class="overlay">
-          <span class="tag">
-            <span class="dot" id="dot-${esc(cam.id)}"></span>
-            <span class="cam-name" title="${esc(cam.id)}">${esc(cam.name || cam.id)}</span>
-            <span class="sep"></span>
-            <span>${esc(cam.zone || cam.id)}</span>
-          </span>
-          <span class="tag right">
-            <span id="status-${esc(cam.id)}">${esc(cam.status || 'online')}</span>
-            <span class="sep"></span>
-            <span class="metric"><b id="fps-${esc(cam.id)}">--</b> fps</span>
-            <span class="sep"></span>
-            <span class="metric" id="res-${esc(cam.id)}">—</span>
-          </span>
-        </div>
       </div>
       <div class="detect" id="detect-${esc(cam.id)}" aria-live="polite">
         <span class="state-chip sin-datos" data-role="chip">Sin datos</span>
@@ -527,10 +644,6 @@ function createCameraCard(cam) {
             <span class="val hidden" data-role="val"></span>
           </div>
           <div class="ticks" data-role="ticks" aria-hidden="true"></div>
-        </div>
-        <div class="method">
-          <span class="k">Criterio activo</span>
-          <span class="v" data-role="method">—</span>
         </div>
       </div>
     </section>`;
@@ -545,7 +658,7 @@ function updateCameraCard(card, cam) {
   // alert_active: evento reciente (unos segundos) sin Ack. No usa el acumulado.
   if (dot) dot.className = 'dot ' + (cam.status === 'offline' ? 'alert' : cam.alert_active ? 'warn' : cam.status === 'online' ? 'ok' : '');
   if (fps) fps.textContent = cam.fps || 0;
-  if (st)  st.textContent = cam.status || 'online';
+  if (st)  st.textContent = statusLabel(cam.status);
   if (feed) feed.classList.toggle('is-alert', !!cam.alert_active);
 }
 
@@ -559,34 +672,27 @@ function renderDetection(cameraId, status) {
   const gauge  = box.querySelector('[data-role="gauge"]');
   const val    = box.querySelector('[data-role="val"]');
   const ticks  = box.querySelector('[data-role="ticks"]');
-  const method = box.querySelector('[data-role="method"]');
-  const lbl    = gauge.querySelector('.lbl');
 
   if (!status) {
     chip.className = 'state-chip sin-datos';
     chip.textContent = 'Sin datos';
     gauge.className = 'gauge';
-    lbl.textContent = 'Confirmación temporal';
-    lbl.className = 'lbl';
     val.classList.add('hidden');
     ticks.innerHTML = '';
-    method.textContent = '—';
     return;
   }
 
   const done = !!status.confirmada;
 
-  // Criterio bbox: decisión instantánea, sin ventana ni medidor.
+  // Criterio bbox: decisión instantánea, sin ventana; solo se muestra el chip.
   if (status.metodo === 'bbox' || !status.ventana) {
     chip.className = 'state-chip' + (done ? ' alerta' : '');
     chip.textContent = done ? 'Caída detectada' : 'Sin incidencias';
-    lbl.textContent = 'Criterio instantáneo';
-    lbl.className = 'instant';
-    val.classList.add('hidden');
+    gauge.className = 'gauge hidden';
     ticks.innerHTML = '';
-    method.textContent = 'bbox';
     return;
   }
+  gauge.className = 'gauge';
 
   const N = status.ventana;
   const n = Math.max(0, Math.min(N, status.avance || 0));
@@ -601,13 +707,10 @@ function renderDetection(cameraId, status) {
   for (let i = 0; i < N; i++) {
     ticks.children[i].className = 'tick' + (i < n ? (done ? ' full' : ' on') : '');
   }
-  lbl.textContent = 'Confirmación temporal';
-  lbl.className = 'lbl';
   val.textContent = n + ' / ' + N + ' cuadros';
   val.classList.remove('hidden');
   chip.className = 'state-chip ' + (done ? 'alerta' : n ? 'evaluando' : '');
   chip.textContent = done ? 'Caída confirmada' : n ? 'Evaluando postura' : 'Sin incidencias';
-  method.textContent = 'pose · ventana ' + N;
 }
 
 // ── WebSocket feeds ──
@@ -633,10 +736,6 @@ function connectWS(cameraId) {
     const url  = URL.createObjectURL(blob);
     const img  = new Image();
     img.onload = () => {
-      if (canvas.width !== img.width || canvas.height !== img.height) {
-        const res = document.getElementById('res-' + cameraId);
-        if (res) res.textContent = img.width + '×' + img.height;
-      }
       canvas.width  = img.width;
       canvas.height = img.height;
       canvas.getContext('2d').drawImage(img, 0, 0);
@@ -692,33 +791,99 @@ function renderEvents(events) {
                       '<div class="small">Las detecciones aparecerán aquí.</div></div>';
     return;
   }
-  // La API entrega los eventos del más reciente al más antiguo.
-  events.forEach(evt => {
-    const item = document.createElement('article');
-    const level = evt.alert_level || 1;
-    const sev = level >= 3 ? ' sev-2' : level === 2 ? ' sev-1' : '';
-    item.className = 'ev' + sev + (evt.acknowledged ? ' acked' : '');
-    item.id = 'evt-' + evt.id;
-    const ts = evt.timestamp ? new Date(evt.timestamp * 1000).toLocaleTimeString('es-CL') : '--:--';
-    const md = evt.metadata || {};
-    const meta = [];
-    if (evt.duration_seconds != null) meta.push('duración ' + formatSeconds(evt.duration_seconds));
-    if (md.metodo) meta.push('criterio ' + md.metodo + (md.metodo === 'pose' && md.ventana ? ' · ventana ' + md.ventana : ''));
-    item.innerHTML = `
-      <div class="ev-head">
-        <span class="ev-type">${esc(evt.event_type || 'Evento')}</span>
-        <span class="ev-time">${esc(ts)}</span>
-      </div>
-      <div class="ev-where" title="${esc(evt.camera_id || '')}">${esc(eventWhere(evt))}</div>
-      ${meta.length ? `<div class="ev-meta">${meta.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : ''}
-      <div class="ev-foot">
-        ${!evt.acknowledged
-          ? `<button class="ack" onclick="ackEvent('${esc(evt.id)}',this)">Confirmar atención</button>`
-          : '<button class="ack" disabled>✓ Revisado</button>'}
-      </div>`;
-    panel.appendChild(item);
-  });
+  // La API entrega los eventos del más reciente al más antiguo. Se separan en
+  // pendientes (arriba, completas) y atendidas (abajo, en una sola línea),
+  // conservando dentro de cada grupo el orden por recencia.
+  const pending = events.filter(e => !e.acknowledged);
+  const done    = events.filter(e => e.acknowledged);
+  const group = (text) => {
+    const g = document.createElement('div');
+    g.className = 'ev-group';
+    g.textContent = text;
+    panel.appendChild(g);
+  };
+  if (pending.length) group('Pendientes · ' + pending.length);
+  pending.forEach(evt => panel.appendChild(eventCard(evt)));
+  if (done.length) group('Atendidas · ' + done.length);
+  done.forEach(evt => panel.appendChild(eventRow(evt)));
 }
+
+// Nombres en español para lo que la API entrega en inglés.
+const EVENT_LABELS = {
+  fall: 'Caída',
+  'caída': 'Caída',
+  perimeter_breach: 'Intrusión de perímetro',
+  after_hours_motion: 'Movimiento fuera de horario',
+  vehicle_entry: 'Ingreso de vehículo',
+  zone_occupancy: 'Ocupación de zona',
+  pool_occupancy: 'Ocupación de piscina',
+  thermal_alert: 'Alerta térmica',
+  weapon_detected: 'Arma detectada',
+  manual_alert: 'Alerta manual',
+};
+// Un tipo sin traducción se muestra como "Evento", nunca en inglés.
+function eventLabel(type) {
+  return EVENT_LABELS[String(type || '').toLowerCase()] || 'Evento';
+}
+
+const STATUS_LABELS = { online: 'En línea', offline: 'Sin conexión' };
+function statusLabel(status) {
+  return STATUS_LABELS[status || 'online'] || status;
+}
+
+function eventTime(evt) {
+  return evt.timestamp ? new Date(evt.timestamp * 1000).toLocaleTimeString('es-CL') : '--:--';
+}
+
+// Atendida: una línea (tipo, cámara, hora). Clic en ella expande la cámara.
+function eventRow(evt) {
+  const item = document.createElement('article');
+  item.className = 'ev acked';
+  item.id = 'evt-' + evt.id;
+  if (document.getElementById('cam-card-' + evt.camera_id)) {
+    item.dataset.cam = evt.camera_id;
+    item.title = 'Ver cámara';
+  }
+  const cam = cameras[evt.camera_id] || {};
+  item.innerHTML = `
+    <div class="ev-head">
+      <span class="ev-type">${esc(eventLabel(evt.event_type))}</span>
+      <span class="ev-where">${esc(cam.name || evt.camera_id || '—')}</span>
+      <span class="ev-time">${esc(eventTime(evt))}</span>
+    </div>`;
+  return item;
+}
+
+// Pendiente: tarjeta completa con "Ver cámara" y "Confirmar atención".
+function eventCard(evt) {
+  const item = document.createElement('article');
+  const level = evt.alert_level || 1;
+  const sev = level >= 3 ? ' sev-2' : level === 2 ? ' sev-1' : '';
+  item.className = 'ev' + sev;
+  item.id = 'evt-' + evt.id;
+  const duration = evt.duration_seconds != null
+    ? `<div class="ev-meta"><span>duración ${esc(formatSeconds(evt.duration_seconds))}</span></div>` : '';
+  item.innerHTML = `
+    <div class="ev-head">
+      <span class="ev-type">${esc(eventLabel(evt.event_type))}</span>
+      <span class="ev-time">${esc(eventTime(evt))}</span>
+    </div>
+    <div class="ev-where" title="${esc(evt.camera_id || '')}">${esc(eventWhere(evt))}</div>
+    ${duration}
+    <div class="ev-foot">
+      <button class="view-cam" type="button" data-cam="${esc(evt.camera_id || '')}"
+        ${document.getElementById('cam-card-' + evt.camera_id) ? '' : 'disabled title="Cámara no disponible en este panel"'}>Ver cámara</button>
+      <button class="ack" onclick="ackEvent('${esc(evt.id)}',this)">Confirmar atención</button>
+    </div>`;
+  return item;
+}
+
+// "Ver cámara" (botón o fila atendida): el id va en data-cam, no en un onclick,
+// para no interpolarlo en JS.
+document.getElementById('panelEvents').addEventListener('click', (e) => {
+  const btn = e.target.closest('.view-cam, .ev.acked[data-cam]');
+  if (btn && !btn.disabled && btn.dataset.cam) expandCamera(btn.dataset.cam);
+});
 
 async function ackEvent(eventId, btn) {
   try {
@@ -726,10 +891,8 @@ async function ackEvent(eventId, btn) {
       method: 'POST', headers: headers()
     });
     if (r.ok) {
-      const item = document.getElementById('evt-' + eventId);
-      if (item) item.classList.add('acked');
-      btn.textContent = '✓ Revisado';
       btn.disabled = true;
+      refreshEvents();   // pasa a "Atendidas" de inmediato, sin esperar el ciclo
       refreshCameras();  // apagar el borde sin esperar el siguiente ciclo
     }
   } catch(e) {}
