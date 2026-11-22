@@ -430,6 +430,20 @@ def push_event(event: Dict[str, Any]) -> None:
         _state.update_camera(cam, alerts=alerts + 1)
 
 
+def annotate_event(event_id: str, **fields: Any) -> bool:
+    """Agrega campos a un evento ya publicado en el panel (p. ej. estado del correo).
+
+    Lo usa demo_camara_ip.py para mostrar "Correo enviado" en la tarjeta del
+    evento cuando termina el envío, que ocurre después de la alerta.
+    Retorna False si el evento ya no está en el buffer.
+    """
+    for event in reversed(_state.recent_events):
+        if event.get("id") == event_id:
+            event.update(fields)
+            return True
+    return False
+
+
 def register_camera(
     camera_id: str,
     status: str = "esperando",

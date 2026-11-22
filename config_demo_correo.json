@@ -1,0 +1,99 @@
+{
+  "_schema_version": "2.0",
+  "_client_id": "demo_correo",
+  "_client_name": "Demo cámara IP + correo",
+  "_comment": "Config de demo_camara_ip.py: una cámara IP simulada con un video de 5 caídas y aviso por correo. Mismos umbrales que config_demo.json / eval. Sin secretos: credenciales y destinatarios van en .env. triggers queda apagado a propósito: el correo lo maneja outputs/notificador_correo.py. La sección clips es el catálogo de demo_analisis.py (videos propios en data/propios/, fuera de git).",
+  "schedule": {
+    "timezone": "America/Santiago",
+    "work_days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "start_time": "00:00",
+    "end_time": "23:59",
+    "holidays": []
+  },
+  "detection": {
+    "use_gpu": false,
+    "min_fall_frames": 8,
+    "fall_angle_threshold_deg": 55.0
+  },
+  "demo": {
+    "snapshot_dir": "test_outputs/demo_correo/snapshots",
+    "report_dir": "test_outputs/demo_correo/reportes",
+    "torch_threads_per_camera": null
+  },
+  "correo": {
+    "camaras": [
+      "CAM_IP_01"
+    ],
+    "ventana_agrupacion_s": 3.0,
+    "max_correos_por_sesion": 8,
+    "instalacion": "Unidad de Hospitalización de Salud Mental (demo)",
+    "asunto_prefijo": "[Vigía Digital]",
+    "duracion_minima_s": 0.5
+  },
+  "triggers": {
+    "enabled": false
+  },
+  "forensic_audit": {
+    "enabled": false
+  },
+  "cameras": [
+    {
+      "id": "CAM_IP_01",
+      "name": "Cámara IP 01",
+      "stream_url": "",
+      "zone": "Pasillo de hospitalización",
+      "sector": "Salud Mental",
+      "enabled": true,
+      "modules_active": [
+        "fall_detection"
+      ],
+      "alert_level_after_hours": 2,
+      "zones": []
+    }
+  ],
+  "clips": [
+    {
+      "id": "09",
+      "archivo": "data/propios/originales/PXL_20261122_192037719.mp4",
+      "ubicacion": "Patio interior con hojas secas y palmera",
+      "esperado": "caida",
+      "nota": "Caída parcialmente tapada por la palmera"
+    },
+    {
+      "id": "02",
+      "archivo": "data/propios/originales/PXL_20261122_191334008~2.mp4",
+      "ubicacion": "Vereda de acceso frente a la reja",
+      "esperado": "no_caida",
+      "nota": "Se agacha y sigue caminando"
+    },
+    {
+      "id": "12",
+      "archivo": "data/propios/originales/PXL_20261122_200819022~2.mp4",
+      "ubicacion": "Balcón de acceso, vista cenital",
+      "esperado": "caida",
+      "nota": "Baja la escalera y cae"
+    },
+    {
+      "id": "13",
+      "archivo": "data/propios/originales/PXL_20261122_200853566~2.mp4",
+      "ubicacion": "Balcón de acceso, vista cenital",
+      "esperado": "no_caida",
+      "nota": "Se arrodilla un rato"
+    },
+    {
+      "id": "05",
+      "archivo": "data/propios/originales/PXL_20261122_191654353.mp4",
+      "ubicacion": "Pasillo exterior con reja y jardín",
+      "esperado": "caida",
+      "nota": "Camina hacia la cámara y cae"
+    }
+  ]
+}

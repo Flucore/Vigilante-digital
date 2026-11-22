@@ -861,8 +861,11 @@ function eventCard(evt) {
   const sev = level >= 3 ? ' sev-2' : level === 2 ? ' sev-1' : '';
   item.className = 'ev' + sev;
   item.id = 'evt-' + evt.id;
-  const duration = evt.duration_seconds != null
-    ? `<div class="ev-meta"><span>duración ${esc(formatSeconds(evt.duration_seconds))}</span></div>` : '';
+  const metaParts = [];
+  if (evt.duration_seconds != null) metaParts.push(`<span>duración ${esc(formatSeconds(evt.duration_seconds))}</span>`);
+  // Estado del correo: lo agrega demo_camara_ip.py cuando termina el envío.
+  if (evt.correo) metaParts.push(`<span>📧 ${esc(evt.correo)}</span>`);
+  const duration = metaParts.length ? `<div class="ev-meta">${metaParts.join('')}</div>` : '';
   item.innerHTML = `
     <div class="ev-head">
       <span class="ev-type">${esc(eventLabel(evt.event_type))}</span>
