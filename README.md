@@ -13,6 +13,7 @@ Equipo: Víctor Bonta, Víctor Sepúlveda, Damián Fierro.
 | Experimento | [`eval/evaluar.py`](eval/evaluar.py) · especificación en [`eval/ESPECIFICACIONES.md`](eval/ESPECIFICACIONES.md) |
 | Punto de entrada del pipeline | `runner.py` |
 | Panel de demostración | `demo_panel.py` |
+| Demo de aviso por correo | `demo_analisis.py` · guía en [`docs/DEMO_CORREO.md`](docs/DEMO_CORREO.md) |
 
 ---
 
@@ -140,6 +141,13 @@ Otras opciones: `--cam` (cámaras del config, una por video), `--headless`,
 `--esperar` (espera Enter antes de procesar), `--host`, `--port`. El panel
 escucha solo en `127.0.0.1` por defecto. Requiere `fastapi` y `uvicorn`,
 incluidos en `requirements.txt`.
+
+### Aviso por correo
+
+`demo_analisis.py` agrega una página (`/analisis/`) para elegir clips, analizarlos
+como una cámara IP y enviar un correo por cada caída (imagen, fecha y hora, ubicación
+y PDF). Instalación, credenciales, videos y dónde modificar:
+[`docs/DEMO_CORREO.md`](docs/DEMO_CORREO.md).
 
 ---
 

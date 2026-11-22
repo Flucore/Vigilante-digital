@@ -1,0 +1,10 @@
+# Demo de aviso por correo (demo_analisis.py / demo_camara_ip.py / demo_panel.py)
+# Se instala ENCIMA de requirements-academico.txt:
+#   pip install -r requirements-academico.txt
+#   pip install -r requirements-demo-correo.txt
+# No reemplaza requirements.txt (ese incluye playsound, que no compila en Python 3.12).
+
+fastapi==0.163.0
+uvicorn[standard]==0.54.0   # [standard] trae websockets: sin él el video del panel se ve negro
+reportlab==5.1.0            # reporte PDF adjunto al correo
+lapx==0.13.1                # tracker de ultralytics; si falta, ultralytics lo instala con el pip del PATH
