@@ -25,6 +25,15 @@
   "forensic_audit": {
     "enabled": false
   },
+  "correo": {
+    "_comment": "Solo con demo_panel.py --correo. Una caida agrupada = un correo; el tope protege contra --loop.",
+    "camaras": ["CAM_PASILLO", "CAM_SALA_COMUN", "CAM_DORMITORIO_1", "CAM_DORMITORIO_2"],
+    "ventana_agrupacion_s": 3.0,
+    "duracion_minima_s": 0.5,
+    "max_correos_por_sesion": 8,
+    "instalacion": "Unidad de Hospitalización de Salud Mental (demo)",
+    "asunto_prefijo": "[Vigía Digital]"
+  },
   "cameras": [
     {
       "id": "CAM_PASILLO",

@@ -262,6 +262,7 @@ button{font-family:inherit}
   font-family:var(--font-mono);font-size:11px;color:var(--ink-2);
   background:var(--bg);border-radius:6px;padding:2px 7px;
 }
+.ev-shot{display:block;width:100%;margin-top:8px;border-radius:6px;border:1px solid var(--line);background:var(--bg)}
 .ev-foot{display:flex;align-items:center;gap:8px;margin-top:9px}
 .view-cam{
   appearance:none;cursor:pointer;font-size:12px;font-weight:500;
@@ -866,6 +867,9 @@ function eventCard(evt) {
   // Estado del correo: lo agrega demo_camara_ip.py cuando termina el envío.
   if (evt.correo) metaParts.push(`<span>📧 ${esc(evt.correo)}</span>`);
   const duration = metaParts.length ? `<div class="ev-meta">${metaParts.join('')}</div>` : '';
+  // Captura del momento de la caída: la anota demo_panel.py --correo junto
+  // con el estado del correo.
+  const shot = evt.captura ? '<img class="ev-shot" alt="Captura del momento de la caída">' : '';
   item.innerHTML = `
     <div class="ev-head">
       <span class="ev-type">${esc(eventLabel(evt.event_type))}</span>
@@ -873,12 +877,28 @@ function eventCard(evt) {
     </div>
     <div class="ev-where" title="${esc(evt.camera_id || '')}">${esc(eventWhere(evt))}</div>
     ${duration}
+    ${shot}
     <div class="ev-foot">
       <button class="view-cam" type="button" data-cam="${esc(evt.camera_id || '')}"
         ${document.getElementById('cam-card-' + evt.camera_id) ? '' : 'disabled title="Cámara no disponible en este panel"'}>Ver cámara</button>
       <button class="ack" onclick="ackEvent('${esc(evt.id)}',this)">Confirmar atención</button>
     </div>`;
+  if (shot) loadCapture(item.querySelector('.ev-shot'), evt.id);
   return item;
+}
+
+// La bitácora se redibuja cada 3 s: la captura se descarga una vez por evento
+// y se reutiliza. Va por fetch (no por src) para enviar el token si lo hay.
+const captureUrls = {};   // event id → Promise<object URL>
+function loadCapture(img, eventId) {
+  if (!captureUrls[eventId]) {
+    captureUrls[eventId] = fetch(OP_BASE + '/api/events/' + encodeURIComponent(eventId) + '/captura',
+                                 { headers: headers() })
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then(b => URL.createObjectURL(b))
+      .catch(() => { delete captureUrls[eventId]; return null; });
+  }
+  captureUrls[eventId].then(url => { if (url) img.src = url; else img.remove(); });
 }
 
 // "Ver cámara" (botón o fila atendida): el id va en data-cam, no en un onclick,

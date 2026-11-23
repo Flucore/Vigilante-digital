@@ -15,6 +15,12 @@ Uso:
     python demo_panel.py --source clip.mp4 --loop --modulo fall_detection
     python demo_panel.py --source a.mp4 b.mp4 c.mp4 --loop
     python demo_panel.py --source a.mp4 b.mp4 --cam CAM_SALA_COMUN CAM_PASILLO
+    python demo_panel.py --source a.mp4 b.mp4 c.mp4 d.mp4 --correo --sin-envio
+
+Con --correo, cada caída agrupada se avisa por correo (outputs/notificador_correo.py,
+credenciales en .env como en demo_camara_ip.py) y el panel muestra una tarjeta
+por caída agrupada, con el estado del correo y la captura del momento de la caída.
+Los episodios crudos siguen quedando en el JSONL.
 
 Panel en el navegador: http://127.0.0.1:8000/operator/
 
@@ -67,6 +73,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "--esperar",
         action="store_true",
         help="Levanta el panel y espera Enter en la terminal antes de procesar.",
+    )
+    p.add_argument(
+        "--correo",
+        action="store_true",
+        help="Avisa cada caída agrupada por correo y muestra su captura en el panel.",
+    )
+    p.add_argument("--env", default=".env", help="Archivo con credenciales SMTP (con --correo).")
+    p.add_argument(
+        "--para", default="",
+        help="Destinatario(s) extra, separados por coma (con --correo).",
+    )
+    p.add_argument(
+        "--sin-envio", action="store_true",
+        help="Con --correo: genera imagen y PDF pero no se conecta a SMTP.",
     )
     p.add_argument("--host", default="127.0.0.1", help="Interfaz del panel (default: solo local).")
     p.add_argument("--port", type=int, default=8000)
@@ -179,6 +199,8 @@ class _VideoWorker(threading.Thread):
                 loop=self.args.loop,
                 show_progress=False,
                 stop_event=self.stop_event,
+                # Con --correo el aviso lo maneja el notificador, no TriggerManager.
+                dispatch_triggers=not self.args.correo,
             )
         except Exception as exc:
             self.error = exc
@@ -197,6 +219,46 @@ def _timed_sink(sink):
     def _sink(camera_id, frame):
         _first_frame_ts.setdefault(camera_id, time.perf_counter())
         sink(camera_id, frame)
+    return _sink
+
+
+def _mail_event_sink(notifier, operator_panel, assignments):
+    """Receptor de eventos con --correo: encadena el panel y el notificador.
+
+    runner.set_event_sink admite un solo receptor, así que este lo ocupa y
+    reparte: el notificador agrupa los fragmentos de una misma caída (D4) y
+    solo la caída agrupada llega al panel, como una tarjeta. El correo y la
+    captura se anotan en esa tarjeta cuando el envío termina.
+    """
+    import uuid
+
+    cams = {cam.id: cam for _, cam in assignments}
+    sources = {cam.id: src for src, cam in assignments}
+
+    def _on_done(event_id: str):
+        def _cb(result) -> None:
+            operator_panel.annotate_event(
+                event_id, correo=result.texto, captura=result.imagen_path,
+            )
+        return _cb
+
+    def _sink(event: dict) -> None:
+        cam_id = event.get("camera_id")
+        cam = cams.get(cam_id)
+        if cam is not None:
+            event.setdefault("camera_name", cam.name)
+        if cam_id in sources:
+            # Cuadro limpio de la caída para la imagen del correo.
+            event["video_path"] = str(sources[cam_id])
+        number = notifier.registrar(event)
+        if number is None:
+            return
+        event["id"] = uuid.uuid4().hex
+        event["correo"] = "Correo en preparación…"
+        operator_panel.push_event(event)
+        LOG.info("Caída %d detectada en %s — preparando correo.", number, cam_id)
+        notifier.enviar_async(event, number, _on_done(event["id"]))
+
     return _sink
 
 
@@ -249,9 +311,18 @@ def main() -> None:
     demo_cfg = loader.get_section("demo", {})
     max_fps = float(demo_cfg.get("panel_max_fps", 12.0))
 
+    notifier = None
+    if args.correo:
+        # Import diferido: demo_camara_ip importa este módulo.
+        from demo_camara_ip import _crear_notificador
+        notifier = _crear_notificador(args, loader)
+
     server, thread, operator_panel = _start_panel(args.host, args.port)
     runner.set_frame_sink(_timed_sink(operator_panel.push_frame), max_fps=max_fps)
-    runner.set_event_sink(operator_panel.push_event)
+    if notifier is None:
+        runner.set_event_sink(operator_panel.push_event)
+    else:
+        runner.set_event_sink(_mail_event_sink(notifier, operator_panel, assignments))
     runner.set_status_sink(operator_panel.push_status)
 
     # El panel muestra id, nombre y zona del config desde el inicio.
@@ -284,6 +355,7 @@ def main() -> None:
                 loop=args.loop,
                 # Sin barra de progreso: tapa imagen y delata que es un archivo.
                 show_progress=False,
+                dispatch_triggers=not args.correo,
             )
         else:
             threads = _torch_threads_per_camera(demo_cfg, len(assignments))
@@ -301,6 +373,9 @@ def main() -> None:
         # Sin --loop, el panel sigue mostrando el último frame hasta Ctrl+C.
         # Con --loop, run_file solo vuelve porque el operador cortó: se sale.
         if not args.loop:
+            if notifier is not None:
+                LOG.info("Esperando correos pendientes…")
+                notifier.cerrar(esperar=True)
             LOG.info("Video(s) terminado(s). Panel sigue activo — Ctrl+C para salir.")
             while thread.is_alive():
                 thread.join(timeout=0.5)
@@ -311,6 +386,8 @@ def main() -> None:
         stop_event.set()
         for w in workers:
             w.join(timeout=10.0)
+        if notifier is not None:
+            notifier.cerrar(esperar=False)
         runner.set_frame_sink(None)
         runner.set_event_sink(None)
         runner.set_status_sink(None)

@@ -322,6 +322,25 @@ async def acknowledge_event(event_id: str) -> Dict[str, Any]:
     }
 
 
+# ── Captura de la caída ───────────────────────────────────────────────────────
+
+@operator_app.get("/api/events/{event_id}/captura", dependencies=[Depends(require_auth)])
+async def event_capture(event_id: str) -> FileResponse:
+    """Imagen del momento de la caída, si el evento la tiene anotada.
+
+    La ruta del archivo sale del evento guardado en el panel (la anota
+    demo_panel.py --correo cuando el notificador prepara la imagen); el
+    cliente solo entrega el id, nunca una ruta.
+    """
+    for event in reversed(_state.recent_events):
+        if event.get("id") == event_id:
+            path = event.get("captura")
+            if path and Path(str(path)).is_file():
+                return FileResponse(str(path), media_type="image/jpeg")
+            break
+    raise HTTPException(status_code=404, detail="El evento no tiene captura.")
+
+
 # ── Exportar turno PDF ────────────────────────────────────────────────────────
 
 @operator_app.post("/api/shift/export", dependencies=[Depends(require_auth)])
