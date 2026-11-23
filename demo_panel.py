@@ -337,6 +337,12 @@ def main() -> None:
         capture_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="captura-panel")
 
     server, thread, operator_panel = _start_panel(args.host, args.port)
+    # Informe de turno: instalación de la sección correo, hora local del config.
+    operator_panel.set_report_info(
+        facility=(loader.get_section("correo", {}) or {}).get("instalacion", ""),
+        timezone_name=(loader.get_section("schedule", {}) or {}).get(
+            "timezone", "America/Santiago"),
+    )
     runner.set_frame_sink(_timed_sink(operator_panel.push_frame), max_fps=max_fps)
     if notifier is None:
         runner.set_event_sink(operator_panel.push_event)

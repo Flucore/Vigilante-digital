@@ -47,7 +47,7 @@ try:
         FastAPI, WebSocket, WebSocketDisconnect,
         HTTPException, Depends, Query, Body, status,
     )
-    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.responses import FileResponse, JSONResponse, Response
     from fastapi.staticfiles import StaticFiles
     from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
     _FASTAPI_OK = True
@@ -105,8 +105,8 @@ class _OperatorState:
         # Eventos recientes (circular buffer de 500)
         self.recent_events: List[Dict[str, Any]] = []
         self._max_events = 500
-        # Eventos reconocidos
-        self._acknowledged: Set[str] = set()
+        # Eventos atendidos: id → hora de la primera confirmación (epoch)
+        self._acknowledged: Dict[str, float] = {}
         # Conexiones WebSocket activas por camera_id
         self.ws_clients: Dict[str, Set[WebSocket]] = {}
         # Último cuadro por camera_id: (JPEG, estado de detección o None).
@@ -134,9 +134,9 @@ class _OperatorState:
         if len(self.recent_events) > self._max_events:
             self.recent_events = self.recent_events[-self._max_events:]
 
-    def acknowledge(self, event_id: str) -> bool:
-        self._acknowledged.add(event_id)
-        return True
+    def acknowledge(self, event_id: str) -> float:
+        """Registra la atención. Una segunda confirmación no cambia la hora."""
+        return self._acknowledged.setdefault(event_id, time.time())
 
     def set_status(self, camera_id: str, status_data: Dict[str, Any]) -> None:
         self._pending_status[camera_id] = status_data
@@ -160,6 +160,9 @@ class _OperatorState:
 
     def is_acknowledged(self, event_id: str) -> bool:
         return event_id in self._acknowledged
+
+    def acknowledged_at(self, event_id: str) -> Optional[float]:
+        return self._acknowledged.get(event_id)
 
 
 _state = _OperatorState()
@@ -297,7 +300,9 @@ async def recent_events(
     """Retorna eventos de los últimos N minutos, del más reciente al más antiguo."""
     cutoff = time.time() - (minutes * 60)
     filtered = [
-        {**e, "acknowledged": _state.is_acknowledged(e.get("id", ""))}
+        {**e,
+         "acknowledged": _state.is_acknowledged(e.get("id", "")),
+         "acknowledged_at": _state.acknowledged_at(e.get("id", ""))}
         for e in _state.recent_events
         if e.get("timestamp", 0) >= cutoff
     ]
@@ -314,11 +319,12 @@ async def recent_events(
 @operator_app.post("/api/events/{event_id}/acknowledge", dependencies=[Depends(require_auth)])
 async def acknowledge_event(event_id: str) -> Dict[str, Any]:
     """Operador marca un evento como revisado (acknowledge)."""
-    _state.acknowledge(event_id)
+    at = _state.acknowledge(event_id)
     return {
         "event_id":  event_id,
         "status":    "acknowledged",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.fromtimestamp(at, tz=timezone.utc).isoformat(),
+        "acknowledged_at": at,
     }
 
 
@@ -398,6 +404,39 @@ async def export_shift(
         summary["by_type"][etype]   = summary["by_type"].get(etype, 0) + 1
 
     return {"status": "ok", "shift_report": summary}
+
+
+@operator_app.post("/api/shift/export.pdf", dependencies=[Depends(require_auth)])
+async def export_shift_pdf(
+    from_ts: Optional[float] = None,
+    to_ts:   Optional[float] = None,
+) -> Response:
+    """Informe del turno en PDF: período, resumen y una fila por evento.
+
+    Mismo período por defecto que /api/shift/export (últimas 8 h). No incluye
+    rutas internas del equipo ni la duración del fragmento (D7).
+    """
+    from api.informe_turno import build_shift_pdf
+
+    now     = time.time()
+    from_ts = from_ts or (now - 8 * 3600)
+    to_ts   = to_ts   or now
+    events = [
+        {**e, "acknowledged_at": _state.acknowledged_at(e.get("id", ""))}
+        for e in _state.recent_events
+        if from_ts <= e.get("timestamp", 0) <= to_ts
+    ]
+    events.sort(key=lambda e: e.get("timestamp", 0))
+    pdf = await asyncio.to_thread(
+        build_shift_pdf, events, dict(_state.cameras),
+        facility=_report_info["facility"], tz_name=_report_info["timezone"],
+        from_ts=from_ts, to_ts=to_ts, generated_ts=now,
+    )
+    stamp = datetime.fromtimestamp(now).strftime("%Y-%m-%d_%H%M")
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="informe_turno_{stamp}.pdf"'},
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -481,6 +520,16 @@ def annotate_event(event_id: str, **fields: Any) -> bool:
             event.update(fields)
             return True
     return False
+
+
+# Datos del informe de turno (los fija el lanzador desde el config).
+_report_info: Dict[str, str] = {"facility": "", "timezone": "America/Santiago"}
+
+
+def set_report_info(facility: str = "", timezone_name: str = "America/Santiago") -> None:
+    """Nombre de la instalación y zona horaria que usa el informe de turno en PDF."""
+    _report_info["facility"] = str(facility or "")
+    _report_info["timezone"] = str(timezone_name or "America/Santiago")
 
 
 # Interruptor del correo. None: la corrida no tiene correo y el panel oculta

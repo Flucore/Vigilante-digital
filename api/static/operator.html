@@ -74,10 +74,6 @@ button{font-family:inherit}
   background:var(--surface);border:1px solid var(--line);
   padding:6px 12px;border-radius:999px;white-space:nowrap;
 }
-button.pill{appearance:none;cursor:pointer;font:inherit;font-size:12.5px}
-button.pill:hover{border-color:var(--ink-3)}
-button.pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button.pill[disabled]{cursor:progress;opacity:.7}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3);flex:none}
 .dot.ok{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
 .dot.warn{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
@@ -237,20 +233,18 @@ button.pill[disabled]{cursor:progress;opacity:.7}
 .ev.sev-1::before{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
 .ev.sev-2{background:var(--alert-soft);border-color:rgba(238,90,82,.25)}
 .ev.sev-2::before{background:var(--alert);box-shadow:0 0 0 3px var(--alert-soft)}
-/* Atendidas: una sola línea, atenuada, debajo de las pendientes */
-.ev.acked{
-  padding:6px 12px 6px 28px;color:var(--ink-3);cursor:pointer;
-  background:transparent;border-color:transparent;
-}
-.ev.acked:hover{background:var(--raised);color:var(--ink-2)}
-.ev.acked::before{
-  content:"✓";top:6px;left:11px;width:auto;height:auto;border-radius:0;
+/* Atendidas: tarjeta completa, atenuada y con la captura en miniatura */
+.ev.done{background:transparent;border-color:var(--line)}
+.ev.done::before{
+  content:"✓";top:11px;left:10px;width:auto;height:auto;border-radius:0;
   background:none;box-shadow:none;font-size:11px;color:var(--ok);
 }
-.ev.acked .ev-head{gap:8px;min-width:0}
-.ev.acked .ev-type{font-size:12.5px;font-weight:500;color:inherit}
-.ev.acked .ev-where{margin:0;font-size:12px;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.ev.acked .ev-time{font-size:11.5px;flex:none}
+.ev.done .ev-type{color:var(--ink-2)}
+.ev.done .ev-shot{width:128px;opacity:.9}
+.acked-at{
+  margin-left:auto;font-size:12px;font-weight:500;color:var(--ok);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
 .ev-group{
   display:flex;align-items:center;gap:8px;
   font-size:11.5px;font-weight:500;color:var(--ink-3);margin:8px 4px 2px;
@@ -310,6 +304,12 @@ button.pill[disabled]{cursor:progress;opacity:.7}
 }
 .action:hover{background:var(--raised);border-color:var(--line)}
 .action:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.action[aria-busy="true"]{cursor:progress;opacity:.7}
+.action .state{
+  margin-left:auto;display:inline-flex;align-items:center;gap:7px;
+  font-size:12px;color:var(--ink-2);background:var(--surface);
+  border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap;
+}
 .actions .eyebrow{font-size:11.5px;color:var(--ink-3);font-weight:500;margin:12px 12px 2px}
 
 /* ── Aviso flotante ─────────────────────────────────────── */
@@ -403,11 +403,6 @@ button.pill[disabled]{cursor:progress;opacity:.7}
     </div>
   </div>
   <div class="top-right">
-    <span class="pill"><span class="dot" id="nodeDot"></span> <span id="nodeId">Nodo —</span></span>
-    <button class="pill hidden" id="mailSwitch" type="button" aria-pressed="false"
-      onclick="toggleMail()" title="Activar o desactivar el aviso por correo">
-      <span class="dot" id="mailDot"></span> <span id="mailLabel">Correo —</span>
-    </button>
     <span class="pill" id="camCount">0 cámaras activas</span>
     <span class="clock" id="clock">--:--:--</span>
   </div>
@@ -439,16 +434,23 @@ button.pill[disabled]{cursor:progress;opacity:.7}
           <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
           Actualizar todas las cámaras
         </button>
-        <button class="action" onclick="exportShift()">
+        <button class="action" id="exportAction" onclick="exportShift()">
           <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
-          Exportar turno actual
+          Exportar informe del turno (PDF)
         </button>
-        <button class="action" onclick="window.open('/','_blank')">
+        <button class="action hidden" id="mailSwitch" type="button" aria-pressed="false"
+          onclick="toggleMail()" title="Activar o desactivar el aviso por correo">
+          <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg></span>
+          Aviso por correo
+          <span class="state"><span class="dot" id="mailDot"></span><span id="mailLabel">—</span></span>
+        </button>
+        <!-- Requieren la API forense: se muestran solo si responde. -->
+        <button class="action hidden needs-forensic" onclick="window.open('/','_blank')">
           <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           Abrir auditoría forense
         </button>
-        <div class="eyebrow">Sistema</div>
-        <button class="action" onclick="checkHealth()">
+        <div class="eyebrow hidden needs-forensic">Sistema</div>
+        <button class="action hidden needs-forensic" onclick="checkHealth()">
           <span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
           Verificar salud del sistema
         </button>
@@ -497,17 +499,13 @@ function headers() {
 
 // ── Init ──
 async function init() {
-  // El identificador de nodo lo entrega el propio panel (no depende de forensic_api).
+  // /api/node responde 401 si el servidor exige token: se pide antes de seguir.
   try {
     const r = await fetch(OP_BASE + '/api/node', { headers: headers() });
     if (r.status === 401) { document.getElementById('tokenModal').classList.remove('hidden'); return; }
-    if (r.ok) {
-      const data = await r.json();
-      document.getElementById('nodeId').textContent = 'Nodo ' + (data.node_id || '—');
-      document.getElementById('nodeDot').className = 'dot ok';
-    }
   } catch(e) {}
 
+  detectForensic();
   refreshCameras();
   refreshEvents();
   refreshMail();
@@ -526,7 +524,7 @@ function renderMail(d) {
   btn.classList.toggle('hidden', !d.disponible);
   btn.setAttribute('aria-pressed', d.activo ? 'true' : 'false');
   document.getElementById('mailDot').className = 'dot' + (d.activo ? ' ok' : '');
-  document.getElementById('mailLabel').textContent = d.activo ? 'Correo activo' : 'Correo apagado';
+  document.getElementById('mailLabel').textContent = d.activo ? 'Activo' : 'Apagado';
 }
 
 async function refreshMail() {
@@ -538,8 +536,9 @@ async function refreshMail() {
 
 async function toggleMail() {
   const btn = document.getElementById('mailSwitch');
+  if (btn.getAttribute('aria-busy') === 'true') return;
   const next = btn.getAttribute('aria-pressed') !== 'true';
-  btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
   try {
     const r = await fetch(OP_BASE + '/api/correo', {
       method: 'POST',
@@ -553,15 +552,18 @@ async function toggleMail() {
   } catch(e) {
     toast('No se pudo cambiar el aviso por correo.');
   } finally {
-    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
   }
 }
 
 // ── Reloj ──
+// Hora 24 h (hh:mm:ss) para el reloj y la bitácora, sin "a. m."/"p. m.".
+const TIME_FMT = new Intl.DateTimeFormat('es-CL',
+  { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+function formatTime(date) { return TIME_FMT.format(date); }
+
 function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').textContent =
-    now.toLocaleTimeString('es-CL', { hour12: false });
+  document.getElementById('clock').textContent = formatTime(new Date());
 }
 
 // ── Cámaras ──
@@ -817,12 +819,6 @@ async function refreshEvents() {
   } catch(e) {}
 }
 
-function formatSeconds(s) {
-  // Un episodio de un solo cuadro dura ~0,03 s: redondeado diría "0,0 s".
-  if (Number(s) < 0.1) return 'menos de 0,1 s';
-  return Number(s).toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' s';
-}
-
 // Nombre de la cámara (del config, vía /api/cameras/status) y zona del evento.
 function eventWhere(evt) {
   const cam = cameras[evt.camera_id] || {};
@@ -857,7 +853,7 @@ function renderEvents(events) {
   if (pending.length) group('Pendientes · ' + pending.length);
   pending.forEach(evt => panel.appendChild(eventCard(evt)));
   if (done.length) group('Atendidas · ' + done.length);
-  done.forEach(evt => panel.appendChild(eventRow(evt)));
+  done.forEach(evt => panel.appendChild(eventCard(evt)));
 }
 
 // Nombres en español para lo que la API entrega en inglés.
@@ -884,40 +880,25 @@ function statusLabel(status) {
 }
 
 function eventTime(evt) {
-  return evt.timestamp ? new Date(evt.timestamp * 1000).toLocaleTimeString('es-CL') : '--:--';
+  return evt.timestamp ? formatTime(new Date(evt.timestamp * 1000)) : '--:--:--';
 }
 
-// Atendida: una línea (tipo, cámara, hora). Clic en ella expande la cámara.
-function eventRow(evt) {
-  const item = document.createElement('article');
-  item.className = 'ev acked';
-  item.id = 'evt-' + evt.id;
-  if (document.getElementById('cam-card-' + evt.camera_id)) {
-    item.dataset.cam = evt.camera_id;
-    item.title = 'Ver cámara';
-  }
-  const cam = cameras[evt.camera_id] || {};
-  item.innerHTML = `
-    <div class="ev-head">
-      <span class="ev-type">${esc(eventLabel(evt.event_type))}</span>
-      <span class="ev-where">${esc(cam.name || evt.camera_id || '—')}</span>
-      <span class="ev-time">${esc(eventTime(evt))}</span>
-    </div>`;
-  return item;
-}
-
-// Pendiente: tarjeta completa con "Ver cámara" y "Confirmar atención".
+// Tarjeta de evento. Pendiente: "Ver cámara" y "Confirmar atención".
+// Atendida: la misma tarjeta, atenuada, con la captura en miniatura y la
+// hora de atención en lugar del botón.
+// La duración no se muestra: hoy es la del fragmento, no la de la caída (D7).
 function eventCard(evt) {
   const item = document.createElement('article');
   const level = evt.alert_level || 1;
   const sev = level >= 3 ? ' sev-2' : level === 2 ? ' sev-1' : '';
-  item.className = 'ev' + sev;
+  item.className = 'ev' + (evt.acknowledged ? ' done' : sev);
   item.id = 'evt-' + evt.id;
-  const metaParts = [];
-  if (evt.duration_seconds != null) metaParts.push(`<span>duración ${esc(formatSeconds(evt.duration_seconds))}</span>`);
-  // Estado del correo: lo agrega demo_camara_ip.py cuando termina el envío.
-  if (evt.correo) metaParts.push(`<span>📧 ${esc(evt.correo)}</span>`);
-  const duration = metaParts.length ? `<div class="ev-meta">${metaParts.join('')}</div>` : '';
+  // Estado del correo: lo agrega el lanzador cuando termina el envío.
+  const meta = evt.correo ? `<div class="ev-meta"><span>📧 ${esc(evt.correo)}</span></div>` : '';
+  const ackedAt = evt.acknowledged_at ? formatTime(new Date(evt.acknowledged_at * 1000)) : '';
+  const action = evt.acknowledged
+    ? `<span class="acked-at">Atendida${ackedAt ? ' · ' + esc(ackedAt) : ''}</span>`
+    : `<button class="ack" onclick="ackEvent('${esc(evt.id)}',this)">Confirmar atención</button>`;
   // Captura del momento de la caída: la anota demo_panel.py --correo junto
   // con el estado del correo.
   const shot = evt.captura ? '<img class="ev-shot" alt="Captura del momento de la caída">' : '';
@@ -927,12 +908,12 @@ function eventCard(evt) {
       <span class="ev-time">${esc(eventTime(evt))}</span>
     </div>
     <div class="ev-where" title="${esc(evt.camera_id || '')}">${esc(eventWhere(evt))}</div>
-    ${duration}
+    ${meta}
     ${shot}
     <div class="ev-foot">
       <button class="view-cam" type="button" data-cam="${esc(evt.camera_id || '')}"
         ${document.getElementById('cam-card-' + evt.camera_id) ? '' : 'disabled title="Cámara no disponible en este panel"'}>Ver cámara</button>
-      <button class="ack" onclick="ackEvent('${esc(evt.id)}',this)">Confirmar atención</button>
+      ${action}
     </div>`;
   if (shot) loadCapture(item.querySelector('.ev-shot'), evt.id);
   return item;
@@ -952,10 +933,9 @@ function loadCapture(img, eventId) {
   captureUrls[eventId].then(url => { if (url) img.src = url; else img.remove(); });
 }
 
-// "Ver cámara" (botón o fila atendida): el id va en data-cam, no en un onclick,
-// para no interpolarlo en JS.
+// "Ver cámara": el id va en data-cam, no en un onclick, para no interpolarlo en JS.
 document.getElementById('panelEvents').addEventListener('click', (e) => {
-  const btn = e.target.closest('.view-cam, .ev.acked[data-cam]');
+  const btn = e.target.closest('.view-cam');
   if (btn && !btn.disabled && btn.dataset.cam) expandCamera(btn.dataset.cam);
 });
 
@@ -982,19 +962,38 @@ function switchTab(tab) {
 
 function refreshAll() { refreshCameras(); refreshEvents(); toast('Cámaras y bitácora actualizadas.'); }
 
+// Informe del turno en PDF (últimas 8 h), generado por el panel.
 async function exportShift() {
+  const btn = document.getElementById('exportAction');
+  if (btn.getAttribute('aria-busy') === 'true') return;
+  btn.setAttribute('aria-busy', 'true');
   try {
-    const r = await fetch(OP_BASE + '/api/shift/export', { method: 'POST', headers: headers() });
+    const r = await fetch(OP_BASE + '/api/shift/export.pdf', { method: 'POST', headers: headers() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    const blob = new Blob([JSON.stringify(data.shift_report, null, 2)], { type: 'application/json' });
+    const name = (/filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') || '') || [])[1]
+              || 'informe_turno.pdf';
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'turno_' + new Date().toISOString().slice(0,16).replace('T','_') + '.json';
+    a.href = URL.createObjectURL(await r.blob());
+    a.download = name;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast('Informe del turno exportado.');
   } catch(e) {
-    toast('No se pudo exportar el turno.');
+    toast('No se pudo exportar el informe del turno.');
+  } finally {
+    btn.removeAttribute('aria-busy');
   }
+}
+
+// La auditoría forense y la verificación de salud dependen de la API forense.
+// Si no está levantada (p. ej. demo_panel.py), esas acciones no se muestran.
+async function detectForensic() {
+  let ok = false;
+  try {
+    const r = await fetch(BASE + '/api/v1/health', { headers: headers() });
+    ok = r.ok;
+  } catch(e) {}
+  document.querySelectorAll('.needs-forensic').forEach(el => el.classList.toggle('hidden', !ok));
 }
 
 async function checkHealth() {
