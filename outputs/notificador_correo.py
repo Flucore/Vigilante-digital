@@ -301,6 +301,15 @@ class NotificadorCorreo:
         except RuntimeError:
             LOG.warning("Notificador cerrado: caída %d sin correo.", numero)
 
+    def preparar_imagen(self, event: Dict[str, Any], numero: int) -> Optional[str]:
+        """Imagen de la caída para mostrarla fuera del correo (p. ej. en el panel).
+
+        Es la misma imagen del correo, en un archivo propio (sufijo _panel) para
+        no pisar el que escribe el envío en paralelo. Bloquea: leer el cuadro
+        del video es E/S, no llamar desde el hilo que procesa el video.
+        """
+        return self._preparar_imagen(event, numero, sufijo="_panel")
+
     def cerrar(self, esperar: bool = True) -> None:
         self._executor.shutdown(wait=esperar, cancel_futures=not esperar)
 
@@ -345,7 +354,8 @@ class NotificadorCorreo:
             LOG.error("Caída %d: falló el envío a %s — %s", numero, destinos, detalle)
         return ResultadoEnvio(numero, ok, False, texto, pdf_path, imagen, destinatarios)
 
-    def _preparar_imagen(self, event: Dict[str, Any], numero: int) -> Optional[str]:
+    def _preparar_imagen(self, event: Dict[str, Any], numero: int,
+                         sufijo: str = "") -> Optional[str]:
         """Imagen del correo (960 px de ancho): el cuadro de la caída, marcado.
 
         Si el evento trae el video (video_path) y el cuadro (end_frame), se toma
@@ -375,7 +385,7 @@ class NotificadorCorreo:
                 img = self._franja(img, event)
             self.report_dir.mkdir(parents=True, exist_ok=True)
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            out = self.report_dir / f"caida_{numero:02d}_{stamp}.jpg"
+            out = self.report_dir / f"caida_{numero:02d}_{stamp}{sufijo}.jpg"
             cv2.imwrite(str(out), img, [cv2.IMWRITE_JPEG_QUALITY, 88])
             return str(out)
         except Exception:

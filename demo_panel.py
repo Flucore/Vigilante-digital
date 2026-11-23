@@ -222,24 +222,31 @@ def _timed_sink(sink):
     return _sink
 
 
-def _mail_event_sink(notifier, operator_panel, assignments):
+def _mail_event_sink(notifier, operator_panel, assignments, capture_pool):
     """Receptor de eventos con --correo: encadena el panel y el notificador.
 
     runner.set_event_sink admite un solo receptor, así que este lo ocupa y
     reparte: el notificador agrupa los fragmentos de una misma caída (D4) y
-    solo la caída agrupada llega al panel, como una tarjeta. El correo y la
-    captura se anotan en esa tarjeta cuando el envío termina.
+    solo la caída agrupada llega al panel, como una tarjeta.
+
+    La captura se prepara siempre, en capture_pool (leer el cuadro del video
+    es E/S y no debe frenar el hilo de la cámara), y se anota en la tarjeta
+    apenas está lista. El correo depende del interruptor del panel: apagado,
+    la tarjeta se publica igual, pero no se envía nada.
     """
     import uuid
 
     cams = {cam.id: cam for _, cam in assignments}
     sources = {cam.id: src for src, cam in assignments}
 
-    def _on_done(event_id: str):
+    def _capture(event: dict, number: int) -> None:
+        path = notifier.preparar_imagen(event, number)
+        if path:
+            operator_panel.annotate_event(event["id"], captura=path)
+
+    def _on_sent(event_id: str):
         def _cb(result) -> None:
-            operator_panel.annotate_event(
-                event_id, correo=result.texto, captura=result.imagen_path,
-            )
+            operator_panel.annotate_event(event_id, correo=result.texto)
         return _cb
 
     def _sink(event: dict) -> None:
@@ -248,16 +255,25 @@ def _mail_event_sink(notifier, operator_panel, assignments):
         if cam is not None:
             event.setdefault("camera_name", cam.name)
         if cam_id in sources:
-            # Cuadro limpio de la caída para la imagen del correo.
+            # Cuadro limpio de la caída para la captura y el correo.
             event["video_path"] = str(sources[cam_id])
+        # Nota: el n° de caída cuenta para el tope de correos por sesión aunque
+        # el interruptor esté apagado. Aceptado: reiniciar el panel reinicia
+        # el contador.
         number = notifier.registrar(event)
         if number is None:
             return
         event["id"] = uuid.uuid4().hex
-        event["correo"] = "Correo en preparación…"
+        send = operator_panel.mail_enabled()
+        event["correo"] = "Correo en preparación…" if send else "Correo desactivado"
         operator_panel.push_event(event)
-        LOG.info("Caída %d detectada en %s — preparando correo.", number, cam_id)
-        notifier.enviar_async(event, number, _on_done(event["id"]))
+        capture_pool.submit(_capture, dict(event), number)
+        if send:
+            LOG.info("Caída %d detectada en %s — preparando correo.", number, cam_id)
+            notifier.enviar_async(event, number, _on_sent(event["id"]))
+        else:
+            LOG.info("Caída %d detectada en %s — correo desactivado en el panel.",
+                     number, cam_id)
 
     return _sink
 
@@ -312,17 +328,22 @@ def main() -> None:
     max_fps = float(demo_cfg.get("panel_max_fps", 12.0))
 
     notifier = None
+    capture_pool = None
     if args.correo:
         # Import diferido: demo_camara_ip importa este módulo.
         from demo_camara_ip import _crear_notificador
         notifier = _crear_notificador(args, loader)
+        from concurrent.futures import ThreadPoolExecutor
+        capture_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="captura-panel")
 
     server, thread, operator_panel = _start_panel(args.host, args.port)
     runner.set_frame_sink(_timed_sink(operator_panel.push_frame), max_fps=max_fps)
     if notifier is None:
         runner.set_event_sink(operator_panel.push_event)
     else:
-        runner.set_event_sink(_mail_event_sink(notifier, operator_panel, assignments))
+        operator_panel.enable_mail_switch(True)
+        runner.set_event_sink(
+            _mail_event_sink(notifier, operator_panel, assignments, capture_pool))
     runner.set_status_sink(operator_panel.push_status)
 
     # El panel muestra id, nombre y zona del config desde el inicio.
@@ -374,7 +395,8 @@ def main() -> None:
         # Con --loop, run_file solo vuelve porque el operador cortó: se sale.
         if not args.loop:
             if notifier is not None:
-                LOG.info("Esperando correos pendientes…")
+                LOG.info("Esperando capturas y correos pendientes…")
+                capture_pool.shutdown(wait=True)
                 notifier.cerrar(esperar=True)
             LOG.info("Video(s) terminado(s). Panel sigue activo — Ctrl+C para salir.")
             while thread.is_alive():
@@ -387,6 +409,7 @@ def main() -> None:
         for w in workers:
             w.join(timeout=10.0)
         if notifier is not None:
+            capture_pool.shutdown(wait=False, cancel_futures=True)
             notifier.cerrar(esperar=False)
         runner.set_frame_sink(None)
         runner.set_event_sink(None)

@@ -74,6 +74,10 @@ button{font-family:inherit}
   background:var(--surface);border:1px solid var(--line);
   padding:6px 12px;border-radius:999px;white-space:nowrap;
 }
+button.pill{appearance:none;cursor:pointer;font:inherit;font-size:12.5px}
+button.pill:hover{border-color:var(--ink-3)}
+button.pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.pill[disabled]{cursor:progress;opacity:.7}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3);flex:none}
 .dot.ok{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
 .dot.warn{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
@@ -400,6 +404,10 @@ button{font-family:inherit}
   </div>
   <div class="top-right">
     <span class="pill"><span class="dot" id="nodeDot"></span> <span id="nodeId">Nodo —</span></span>
+    <button class="pill hidden" id="mailSwitch" type="button" aria-pressed="false"
+      onclick="toggleMail()" title="Activar o desactivar el aviso por correo">
+      <span class="dot" id="mailDot"></span> <span id="mailLabel">Correo —</span>
+    </button>
     <span class="pill" id="camCount">0 cámaras activas</span>
     <span class="clock" id="clock">--:--:--</span>
   </div>
@@ -502,10 +510,51 @@ async function init() {
 
   refreshCameras();
   refreshEvents();
+  refreshMail();
   updateClock();
   setInterval(refreshCameras, 5000);
+  setInterval(refreshMail,    5000);
   setInterval(refreshEvents,  3000);
   setInterval(updateClock,    1000);
+}
+
+// ── Interruptor de correo ──
+// Solo aparece si la corrida tiene correo (demo_panel.py --correo). Apagado,
+// el sistema sigue detectando y registrando; solo no envía.
+function renderMail(d) {
+  const btn = document.getElementById('mailSwitch');
+  btn.classList.toggle('hidden', !d.disponible);
+  btn.setAttribute('aria-pressed', d.activo ? 'true' : 'false');
+  document.getElementById('mailDot').className = 'dot' + (d.activo ? ' ok' : '');
+  document.getElementById('mailLabel').textContent = d.activo ? 'Correo activo' : 'Correo apagado';
+}
+
+async function refreshMail() {
+  try {
+    const r = await fetch(OP_BASE + '/api/correo', { headers: headers() });
+    if (r.ok) renderMail(await r.json());
+  } catch(e) {}
+}
+
+async function toggleMail() {
+  const btn = document.getElementById('mailSwitch');
+  const next = btn.getAttribute('aria-pressed') !== 'true';
+  btn.disabled = true;
+  try {
+    const r = await fetch(OP_BASE + '/api/correo', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+      body: JSON.stringify({ activo: next }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    renderMail(d);
+    toast(d.activo ? 'Aviso por correo activado.' : 'Aviso por correo desactivado. La detección sigue.');
+  } catch(e) {
+    toast('No se pudo cambiar el aviso por correo.');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ── Reloj ──
@@ -658,7 +707,9 @@ function updateCameraCard(card, cam) {
   const feed = document.getElementById('feed-' + cam.id);
   // alert_active: evento reciente (unos segundos) sin Ack. No usa el acumulado.
   if (dot) dot.className = 'dot ' + (cam.status === 'offline' ? 'alert' : cam.alert_active ? 'warn' : cam.status === 'online' ? 'ok' : '');
-  if (fps) fps.textContent = cam.fps || 0;
+  // Sin cuadros recientes (p. ej. el video terminó y el cuadro quedó congelado)
+  // se muestra "—": la cámara sigue en línea, solo no hay fps que medir.
+  if (fps) fps.textContent = cam.fps ? cam.fps : '—';
   if (st)  st.textContent = statusLabel(cam.status);
   if (feed) feed.classList.toggle('is-alert', !!cam.alert_active);
 }

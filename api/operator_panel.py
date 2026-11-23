@@ -45,7 +45,7 @@ if str(ROOT) not in sys.path:
 try:
     from fastapi import (
         FastAPI, WebSocket, WebSocketDisconnect,
-        HTTPException, Depends, Query, status,
+        HTTPException, Depends, Query, Body, status,
     )
     from fastapi.responses import FileResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
@@ -341,6 +341,26 @@ async def event_capture(event_id: str) -> FileResponse:
     raise HTTPException(status_code=404, detail="El evento no tiene captura.")
 
 
+# ── Interruptor del correo ────────────────────────────────────────────────────
+
+@operator_app.get("/api/correo", dependencies=[Depends(require_auth)])
+async def mail_switch_status() -> Dict[str, Any]:
+    """Estado del interruptor. disponible=False: esta corrida no envía correos."""
+    return {"disponible": _mail_switch is not None, "activo": bool(_mail_switch)}
+
+
+@operator_app.post("/api/correo", dependencies=[Depends(require_auth)])
+async def mail_switch_set(activo: bool = Body(..., embed=True)) -> Dict[str, Any]:
+    """Enciende o apaga el envío de correos sin detener la detección."""
+    global _mail_switch
+    if _mail_switch is None:
+        raise HTTPException(status_code=409, detail="Esta corrida no tiene correo.")
+    _mail_switch = bool(activo)
+    LOG.info("[OperatorPanel] Envío de correo %s desde el panel.",
+             "ACTIVADO" if _mail_switch else "DESACTIVADO")
+    return {"disponible": True, "activo": _mail_switch}
+
+
 # ── Exportar turno PDF ────────────────────────────────────────────────────────
 
 @operator_app.post("/api/shift/export", dependencies=[Depends(require_auth)])
@@ -461,6 +481,22 @@ def annotate_event(event_id: str, **fields: Any) -> bool:
             event.update(fields)
             return True
     return False
+
+
+# Interruptor del correo. None: la corrida no tiene correo y el panel oculta
+# el botón. Lo habilita demo_panel.py --correo.
+_mail_switch: Optional[bool] = None
+
+
+def enable_mail_switch(active: bool = True) -> None:
+    """Muestra el interruptor de correo en el panel, con su estado inicial."""
+    global _mail_switch
+    _mail_switch = bool(active)
+
+
+def mail_enabled() -> bool:
+    """True si el operador tiene el envío de correo encendido."""
+    return bool(_mail_switch)
 
 
 def register_camera(
